@@ -3,6 +3,7 @@ import spatial.dsl._
 @spatial object HelloSpatial extends SpatialApp {
 
   def main(args: Array[String]): Unit = {
+    /*
     val argin1 = ArgIn[Int]   // Register that is written to by the host and read from by the Accel
     val argout1 = ArgOut[Int] // Register that is written to by the Accel and read from by the host
     val io1 = HostIO[Int]     // Register that can be both written to and read from by the Accel and the host
@@ -76,6 +77,7 @@ import spatial.dsl._
     println("Received " + result1 + " and " + result2)
     val cksum = (result1 == {args(0).to[Int] + args(1).to[Int]}) && (result2 == args(0).to[Int]) // The {} brackets are Scala's way of scoping operations
     println("ArgTest pass? " + cksum)
+    */
   }
 }
 

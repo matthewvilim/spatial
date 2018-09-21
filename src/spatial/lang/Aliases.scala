@@ -67,7 +67,7 @@ trait ExternalAliases extends InternalAliases {
   type DRAM3[A] = spatial.lang.DRAM3[A]
   type DRAM4[A] = spatial.lang.DRAM4[A]
   type DRAM5[A] = spatial.lang.DRAM5[A]
-  lazy val DRAM = spatial.lang.DRAM
+  lazy val DRAM1 = spatial.lang.DRAM1
 
   type SRAM[A,C[T]] = spatial.lang.SRAM[A,C]
   type SRAM1[A] = spatial.lang.SRAM1[A]

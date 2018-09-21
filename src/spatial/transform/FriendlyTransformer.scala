@@ -25,7 +25,7 @@ case class FriendlyTransformer(IR: State) extends MutateTransformer with AccelTr
   def extract[A:Type](lhs: Sym[A], rhs: Op[A], reg: Reg[A], tp: String): Sym[A] = mostRecentWrite.get(reg) match {
     case Some(data) if (lhs.parent.hasAncestor(data.parent)) =>
       // Don't get rid of reads being used for DRAM allocations
-      if (lhs.consumers.exists{case Op(DRAMNew(_, _)) => true; case _ => false }) {
+      if (lhs.consumers.exists{case Op(DRAMNew()) => true; case _ => false }) {
         dbg(s"Node $lhs ($rhs) has a dram reading its most recent write")
         super.transform(lhs, rhs)
       }
@@ -58,6 +58,7 @@ case class FriendlyTransformer(IR: State) extends MutateTransformer with AccelTr
     }
 
     // Add ArgIns for DRAM dimensions
+    /*
     case DRAMNew(F(dims),_) =>
       dimMapping ++= dims.distinct.map{
         case d @ Op(RegRead(reg)) if reg.isArgIn  => dbg(s"DRAM: $lhs ($dims), dim: $d = ArgIn, mapping to $d");                         d -> d
@@ -69,6 +70,7 @@ case class FriendlyTransformer(IR: State) extends MutateTransformer with AccelTr
       val dims2 = dims.map{d => dimMapping(d) }
       addedArgIns ++= dims.zip(dims2)
       isolateSubstWith(escape=Nil, dims.zip(dims2):_*){ super.transform(lhs,rhs) }
+    */
 
     case GetReg(F(reg)) =>
       def read(tp: String): Sym[A] = {

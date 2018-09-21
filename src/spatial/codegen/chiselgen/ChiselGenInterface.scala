@@ -96,7 +96,7 @@ trait ChiselGenInterface extends ChiselGenCommon {
       val enStr = if (en.isEmpty) "true.B" else en.map(quote).mkString(" & ")
       emitt(src"""${swap(reg, EnOptions)}($id) := ${enStr} & ${DL(src"${swap(controllerStack.head, DatapathEn)} & ${swap(controllerStack.head, IIDone)}", lhs.fullDelay)}""")
 
-    case DRAMNew(dims, _) => 
+    case DRAMNew() => 
       drams += (lhs -> drams.toList.length)
 
     case GetDRAMAddress(dram) =>

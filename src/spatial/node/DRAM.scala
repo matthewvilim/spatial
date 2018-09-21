@@ -1,7 +1,7 @@
 package spatial.node
 
 import argon._
-import argon.node.Primitive
+import argon.node._
 import forge.tags._
 
 import spatial.lang._
@@ -14,8 +14,9 @@ import spatial.lang._
   val A: Bits[A] = Bits[A]
 }
 
-@op case class DRAMAlloc[A:Bits,C[T]](dram: DRAM[A,C], dims: Seq[I32]) extends Enqueuer[A] {
+@op case class DRAMAlloc[A:Bits,C[T]](dram: DRAM[A,C], dims: Seq[I32]) extends EnPrimitive[Void] {
   override var ens: Set[Bit] = Set.empty
+  override def effects: Effects = Effects.Writes(dram)
 }
 
 @op case class SetMem[A:Bits,C[T]](dram: DRAM[A,C], data: Tensor1[A]) extends Op2[A,Void] {
