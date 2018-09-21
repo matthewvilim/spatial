@@ -37,6 +37,12 @@ abstract class DRAM[A:Bits,C[T]](implicit val evMem: C[A] <:< DRAM[A,C]) extends
     super.eql(that)
   }
 }
+
+object DRAM1 {
+  @api def apply[A:Bits](): DRAM1[A] = stage(DRAMNew[A,DRAM1]())
+}
+
+/*
 object DRAM {
   /** Allocates a 1-dimensional [[DRAM1]] with capacity of `length` elements of type A. */
   @api def apply[A:Bits](length: I32): DRAM1[A] = stage(DRAMNew[A,DRAM1](Seq(length),zero[A]))
@@ -53,12 +59,17 @@ object DRAM {
   /** Allocates a 5-dimensional [[DRAM5]] with the given dimensions and elements of type A. */
   @api def apply[A:Bits](d0: I32, d1: I32, d2: I32, d3: I32, d4: I32): DRAM5[A] = stage(DRAMNew[A,DRAM5](Seq(d0,d1,d2,d3,d4),zero[A]))
 }
+*/
 
 /** A 1-dimensional [[DRAM]] with elements of type A. */
 @ref class DRAM1[A:Bits] extends DRAM[A,DRAM1] with Ref[Array[Any],DRAM1[A]] with Mem1[A,DRAM1] {
   def rank: Seq[Int] = Seq(0)
   @api def length: I32 = dims.head
   @api override def size: I32 = dims.head
+
+  @api def alloc(len: I32): Void = {
+    stage(DRAMAlloc[A,DRAM1](this, Seq(len)))
+  }
 
   /** Creates a view of a sparse region of this DRAM1 for use in scatter and gather transfers. */
   @api def apply(addrs: SRAM1[I32]): DRAMSparseTile[A] = {
