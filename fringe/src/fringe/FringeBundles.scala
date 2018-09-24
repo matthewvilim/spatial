@@ -180,6 +180,22 @@ class DebugSignals extends Bundle {
 
 }
 
+class HeapRequest extends Bundle {
+  val allocDealloc = Bool()
+  val size = UInt(64.W)
+  val addr = UInt(64.W)
+}
+
+class HeapResponse extends Bundle {
+  val allocDealloc = Bool()
+  val addr = UInt(64.W)
+}
+
+class HeapIO(allocatorCount: Int) extends Bundle {
+  val req = Vec(allocatorCount, Valid(new HeapRequest).flip) }
+  val resp = Vec(allocatorCount, Valid(new HeapResponse)) }
+}
+
 //class StreamOutAccel(p: StreamParInfo) extends Bundle {
 //  val data = UInt(p.w.W)
 //  val tag = UInt(p.w.W)
