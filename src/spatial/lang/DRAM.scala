@@ -38,6 +38,10 @@ abstract class DRAM[A:Bits,C[T]](implicit val evMem: C[A] <:< DRAM[A,C]) extends
     stage(DRAMAlloc[A,DRAM1](this, Seq(len)))
   }
 
+  @api def dealloc(): Void = {
+    stage(DRAMDealloc[A,DRAM1](this))
+  }
+
   /** Creates a view of a sparse region of this DRAM1 for use in scatter and gather transfers. */
   @api def apply(addrs: SRAM1[I32]): DRAMSparseTile[A] = {
     stage(MemSparseAlias[A,SRAM1,DRAM1,DRAMSparseTile](this,addrs,addrs.length))

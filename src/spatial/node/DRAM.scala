@@ -19,6 +19,11 @@ import spatial.lang._
   override def effects: Effects = Effects.Writes(dram)
 }
 
+@op case class DRAMDealloc[A:Bits,C[T]](dram: DRAM[A,C]) extends EnPrimitive[Void] {
+  override var ens: Set[Bit] = Set.empty
+  override def effects: Effects = Effects.Writes(dram)
+}
+
 @op case class SetMem[A:Bits,C[T]](dram: DRAM[A,C], data: Tensor1[A]) extends Op2[A,Void] {
   override def effects: Effects = Effects.Writes(dram)
 }

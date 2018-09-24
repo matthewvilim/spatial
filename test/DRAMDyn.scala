@@ -13,6 +13,8 @@ import spatial.dsl._
       dram.alloc(size)
       if (size < 50) {
         dram(0::50) store sram
+      } else {
+        dram.dealloc()
       }
     }
   }
