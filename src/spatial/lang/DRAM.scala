@@ -79,7 +79,7 @@ abstract class DRAM[A:Bits,C[T]](implicit val evMem: C[A] <:< DRAM[A,C]) extends
 }
 
 object DRAM1 {
-  @api def apply[A:Bits](): DRAM1[A] = stage(DRAMNew[A,DRAM1]())
+  @api def apply[A:Bits]: DRAM1[A] = stage(DRAMNew[A,DRAM1]())
 }
 
 /** A 2-dimensional [[DRAM]] with elements of type A. */
@@ -96,7 +96,7 @@ object DRAM1 {
 }
 
 object DRAM2 {
-  @api def apply[A:Bits](): DRAM2[A] = stage(DRAMNew[A,DRAM2]())
+  @api def apply[A:Bits]: DRAM2[A] = stage(DRAMNew[A,DRAM2]())
 }
 
 /** A 3-dimensional [[DRAM]] with elements of type A. */
@@ -111,7 +111,7 @@ object DRAM2 {
 }
 
 object DRAM3 {
-  @api def apply[A:Bits](): DRAM3[A] = stage(DRAMNew[A,DRAM3]())
+  @api def apply[A:Bits]: DRAM3[A] = stage(DRAMNew[A,DRAM3]())
 }
 
 /** A 4-dimensional [[DRAM]] with elements of type A. */
@@ -123,7 +123,7 @@ object DRAM3 {
 }
 
 object DRAM4 {
-  @api def apply[A:Bits](): DRAM4[A] = stage(DRAMNew[A,DRAM4]())
+  @api def apply[A:Bits]: DRAM4[A] = stage(DRAMNew[A,DRAM4]())
 }
 
 /** A 5-dimensional [[DRAM]] with elements of type A. */
@@ -135,7 +135,7 @@ object DRAM4 {
 }
 
 object DRAM5 {
-  @api def apply[A:Bits](): DRAM5[A] = stage(DRAMNew[A,DRAM5]())
+  @api def apply[A:Bits]: DRAM5[A] = stage(DRAMNew[A,DRAM5]())
 }
 
 /** A sparse, 1-dimensional region of DRAM with elements of type A. */

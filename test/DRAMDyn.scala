@@ -6,7 +6,7 @@ import spatial.dsl._
 
   def main(args: Array[String]): Unit = {
     val size = random[Int](100)
-    val dram = DRAM1[Int]()
+    val dram = DRAM1[Int]
 
     Accel {
       val sram = SRAM[Int](50)
