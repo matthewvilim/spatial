@@ -194,6 +194,8 @@ class HeapResponse extends Bundle {
 class HeapIO(numAlloc: Int) extends Bundle {
   val req = Vec(numAlloc, Flipped(Valid(new HeapRequest)))
   val resp = Vec(numAlloc, Valid(new HeapResponse))
+
+  override def cloneType(): this.type = new HeapIO(numAlloc).asInstanceOf[this.type]
 }
 
 //class StreamOutAccel(p: StreamParInfo) extends Bundle {

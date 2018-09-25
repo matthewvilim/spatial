@@ -6,25 +6,24 @@ import chisel3.util._
 import fringe._
 
 class DRAMAllocator(appReqCount: Int) extends Module {
-  val io = new Bundle {
+  val io = IO(new Bundle {
     val appReq = Vec(appReqCount, Flipped(Valid(new HeapRequest)))
-    val appResp = Valid(new HeapResponse)
+    val appResp = Output(new HeapResponse)
 
     val heapReq = Valid(new HeapRequest)
     val heapResp = Flipped(Valid(new HeapResponse))
-  }
+  })
 
-  var state = RegInit(new HeapResponse)
+  val init = Wire(new HeapResponse)
+  init.allocDealloc := false.B
+
+  var state = RegInit(init)
   when (io.heapResp.valid) {
-    state.allocDealloc := io.heapResp.bits.allocDealloc
-    state.addr := io.heapResp.bits.addr
+    state := io.heapResp.bits
   }
   io.appResp := state
 
   val reqIdx = PriorityEncoder(io.appReq.map { _.valid })
-
   io.heapReq.valid := io.appReq.asUInt.orR
-  io.heapReq.bits.allocDealloc := io.appReq(reqIdx).bits.allocDealloc
-  io.heapReq.bits.addr := io.appReq(reqIdx).bits.addr
-  io.heapReq.bits.size := io.appReq(reqIdx).bits.size
+  io.heapReq.bits := io.appReq(reqIdx).bits
 }

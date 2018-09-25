@@ -96,7 +96,7 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
     mag
   }
  
-  val heap = new DRAMHeap(numAllocators)
+  val heap = Module(new DRAMHeap(numAllocators))
   heap.io <> io.heap
 
   val numDebugs = mags(debugChannelID).numDebugs
