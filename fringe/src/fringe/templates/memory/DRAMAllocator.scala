@@ -5,9 +5,9 @@ import chisel3.util._
 
 import fringe._
 
-class DRAM(appReqCount: Int) extends Module {
+class DRAMAllocator(appReqCount: Int) extends Module {
   val io = new Bundle {
-    val appReq = Flipped(Valid(new HeapReqest()))
+    val appReq = Vec(appReqCount, Flipped(Valid(new HeapReqest())))
     val appResp = Valid(new HeapResponse())
 
     val heapReq = Valid(new HeapRequest())

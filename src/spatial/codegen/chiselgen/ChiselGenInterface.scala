@@ -96,12 +96,14 @@ trait ChiselGenInterface extends ChiselGenCommon {
       val enStr = if (en.isEmpty) "true.B" else en.map(quote).mkString(" & ")
       emitt(src"""${swap(reg, EnOptions)}($id) := ${enStr} & ${DL(src"${swap(controllerStack.head, DatapathEn)} & ${swap(controllerStack.head, IIDone)}", lhs.fullDelay)}""")
 
+    /*
     case DRAMNew() => 
       drams += (lhs -> drams.toList.length)
 
     case GetDRAMAddress(dram) =>
       val id = argHandle(dram)
       emit(src"""val $lhs = io.argIns(api.${id}_ptr)""")
+    */
 
     case FringeDenseLoad(dram,cmdStream,dataStream) =>
       appPropertyStats += HasTileLoad
