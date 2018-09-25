@@ -55,7 +55,7 @@ trait ChiselGenDRAM extends ChiselGenCommon {
         emitt(s"""globals.numAllocators = ${drams.size})""")
       }
 
-      inGenn(out, "Instantiator", ext) {
+      inGen(out, "Instantiator.scala") {
         emit(src"// Heap")
         emitt(s"""val numAllocators = ${drams.size})""")
       }

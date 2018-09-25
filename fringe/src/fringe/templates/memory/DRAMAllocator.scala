@@ -1,20 +1,18 @@
-package templates
+package fringe
 
 import chisel3._
 import chisel3.util._
 
-import fringe._
-
 class DRAMAllocator(appReqCount: Int) extends Module {
   val io = new Bundle {
-    val appReq = Vec(appReqCount, Flipped(Valid(new HeapReqest())))
-    val appResp = Valid(new HeapResponse())
+    val appReq = Vec(appReqCount, Flipped(Valid(new HeapRequest)))
+    val appResp = Valid(new HeapResponse)
 
-    val heapReq = Valid(new HeapRequest())
-    val heapResp = Flipped(Valid(new HeapResponse()))
+    val heapReq = Valid(new HeapRequest)
+    val heapResp = Flipped(Valid(new HeapResponse))
   }
 
-  var state = RegInit(HeapResponse())
+  var state = RegInit(new HeapResponse)
   when (io.heapResp.valid) {
     state.allocDealloc := io.heapResp.bits.allocDealloc
     state.addr := io.heapResp.bits.addr

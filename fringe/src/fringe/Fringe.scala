@@ -49,6 +49,7 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
     // Accel memory IO
     val memStreams = new AppStreams(LOAD_STREAMS, STORE_STREAMS)
     val dram = Vec(NUM_CHANNELS, new DRAMStream(DATA_WIDTH, WORDS_PER_STREAM))
+    val heap = new HeapIO(numAllocators)
 
     // AXI Debuggers
     val TOP_AXI = new AXI4Probe(axiLiteParams)
@@ -94,7 +95,9 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
     mag.io.app.stores.zip(storeStreams).foreach{ case (s, ss) => s <> ss }
     mag
   }
-
+ 
+  val heap = new DRAMHeap(numAllocators)
+  heap.io <> io.heap
 
   val numDebugs = mags(debugChannelID).numDebugs
   val numRegs = NUM_ARGS + 2 - NUM_ARG_INS + numDebugs // (command, status registers)

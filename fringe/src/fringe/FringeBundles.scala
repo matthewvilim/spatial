@@ -1,7 +1,7 @@
 package fringe
 
 import chisel3._
-import chisel3.util.Decoupled
+import chisel3.util._
 import fringe.utils._
 
 /**
@@ -191,9 +191,9 @@ class HeapResponse extends Bundle {
   val addr = UInt(64.W)
 }
 
-class HeapIO(allocatorCount: Int) extends Bundle {
-  val req = Vec(allocatorCount, Valid(new HeapRequest).flip) }
-  val resp = Vec(allocatorCount, Valid(new HeapResponse)) }
+class HeapIO(numAlloc: Int) extends Bundle {
+  val req = Vec(numAlloc, Flipped(Valid(new HeapRequest)))
+  val resp = Vec(numAlloc, Valid(new HeapResponse))
 }
 
 //class StreamOutAccel(p: StreamParInfo) extends Bundle {
