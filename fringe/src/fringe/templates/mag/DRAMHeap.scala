@@ -1,8 +1,9 @@
-package fringe
+package fringe.templates.mag
 
 import chisel3._
 import chisel3.util._
 
+import fringe._
 import fringe.utils._
 
 class DRAMHeap (

@@ -7,7 +7,7 @@ import fringe.targets.asic.ASIC
 import fringe.targets.vcs.VCS
 import fringe.utils.Depulser
 import fringe.templates.axi4._
-import fringe.templates.mag.MAGCore
+import fringe.templates.mag.{MAGCore, DRAMHeap}
 import fringe.templates.counters.FringeCounter
 import fringe.templates.memory.RegFile
 
