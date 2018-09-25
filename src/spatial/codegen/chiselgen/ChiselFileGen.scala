@@ -197,6 +197,7 @@ trait ChiselFileGen extends ChiselCodegen {
         emit ("globals.storeStreamInfo = io_storeStreamInfo")
         emit ("globals.streamInsInfo = io_streamInsInfo")
         emit ("globals.streamOutsInfo = io_streamOutsInfo")
+        emit ("globals.numAllocators = io_numAllocators")
 
         open("val io = IO(new CustomAccelInterface(io_w, io_v, globals.LOAD_STREAMS, globals.STORE_STREAMS, globals.numAllocators, io_numArgIns, io_numArgOuts, io_numArgOutLoopbacks))")
   //         emit ("")
@@ -362,7 +363,7 @@ trait ChiselFileGen extends ChiselCodegen {
             emit("val numArgIOs: Int,")
             emit("val numArgInstrs: Int,")
             emit("val argOutLoopbacksMap: scala.collection.immutable.Map[Int,Int],")
-            emit("val numAllocators,")
+            emit("val numAllocators: Int,")
             emit("val loadStreamInfo: List[StreamParInfo],")
             emit("val storeStreamInfo: List[StreamParInfo],")
             emit("val streamInsInfo: List[StreamParInfo],")

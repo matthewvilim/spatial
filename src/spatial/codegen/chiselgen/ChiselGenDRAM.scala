@@ -52,12 +52,13 @@ trait ChiselGenDRAM extends ChiselGenCommon {
   override def emitFooter(): Unit = {
   	inAccel{
       inGenn(out, "IOModule", ext) {
-        emitt(s"""globals.numAllocators = ${drams.size})""")
+        emit("// Heap")
+        emit(src"val io_numAllocators = ${drams.size}")
       }
 
       inGen(out, "Instantiator.scala") {
         emit(src"// Heap")
-        emitt(s"""val numAllocators = ${drams.size})""")
+        emit(src"val numAllocators = ${drams.size}")
       }
     }
     super.emitFooter()
