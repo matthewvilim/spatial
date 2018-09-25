@@ -15,8 +15,8 @@ class DRAMHeap (
   val reqIdx = PriorityEncoder(io.req.map { _.valid })
   val req = io.req(reqIdx)
 
-  val delayedReqIdx = getRetimed(reqIdx, 20)
-  val delayedReq = getRetimed(req, 20)
+  val delayedReqIdx = getRetimed(reqIdx, 200)
+  val delayedReq = getRetimed(req, 200)
 
   io.resp.zipWithIndex.foreach { case (resp, i) =>
     resp.valid := delayedReqIdx === i.U

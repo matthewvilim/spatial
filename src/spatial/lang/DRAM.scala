@@ -78,6 +78,43 @@ abstract class DRAM[A:Bits,C[T]](implicit val evMem: C[A] <:< DRAM[A,C]) extends
   @api def store(local: SRAM1[A], len: I32): Void = stage(DenseTransfer(this,local.apply(0::len),isLoad = false))
 }
 
+object DRAM {
+  /** Allocates a 1-dimensional [[DRAM1]] with capacity of `length` elements of type A. */
+  @api def apply[A:Bits](length: I32): DRAM1[A] = {
+    val d = DRAM1[A]
+    stage(DRAMAlloc(d, Seq(length)))
+    d
+  }
+
+  /** Allocates a 2-dimensional [[DRAM2]] with `rows` x `cols` elements of type A. */
+  @api def apply[A:Bits](rows: I32, cols: I32): DRAM2[A] = {
+    val d = DRAM2[A]
+    stage(DRAMAlloc(d, Seq(rows, cols)))
+    d
+  }
+
+  /** Allocates a 3-dimensional [[DRAM3]] with the given dimensions and elements of type A. */
+  @api def apply[A:Bits](d0: I32, d1: I32, d2: I32): DRAM3[A] = {
+    val d = DRAM3[A]
+    stage(DRAMAlloc(d, Seq(d0, d1, d2)))
+    d
+  }
+
+  /** Allocates a 4-dimensional [[DRAM4]] with the given dimensions and elements of type A. */
+  @api def apply[A:Bits](d0: I32, d1: I32, d2: I32, d3: I32): DRAM4[A] = {
+    val d = DRAM4[A]
+    stage(DRAMAlloc(d, Seq(d0, d1, d2, d3)))
+    d
+  }
+
+  /** Allocates a 5-dimensional [[DRAM5]] with the given dimensions and elements of type A. */
+  @api def apply[A:Bits](d0: I32, d1: I32, d2: I32, d3: I32, d4: I32): DRAM5[A] = {
+    val d = DRAM5[A]
+    stage(DRAMAlloc(d, Seq(d0, d1, d2, d3, d4)))
+    d
+  }
+}
+
 object DRAM1 {
   @api def apply[A:Bits]: DRAM1[A] = stage(DRAMNew[A,DRAM1]())
 }
