@@ -19,8 +19,10 @@ class DRAMAllocator(appReqCount: Int) extends Module {
   }
   io.appResp := state
 
-  io.heapReq.valid := io.appReq.valid
-  io.heapReq.bits.allocDealloc := io.appReq.bits.allocDealloc
-  io.heapReq.bits.addr := io.appReq.bits.addr
-  io.heapReq.bits.size := io.appReq.bits.size
+  val reqIdx = PriorityEncoder(io.appReq.map { _.valid })
+
+  io.heapReq.valid := io.appReq.asUInt.orR
+  io.heapReq.bits.allocDealloc := io.appReq(reqIdx).bits.allocDealloc
+  io.heapReq.bits.addr := io.appReq(reqIdx).bits.addr
+  io.heapReq.bits.size := io.appReq(reqIdx).bits.size
 }
