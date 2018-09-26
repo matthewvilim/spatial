@@ -15,7 +15,7 @@ trait ChiselGenDRAM extends ChiselGenCommon {
 
   override protected def gen(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case DRAMNew() =>
-      inAccel {
+      if (inHw) {
         val reqCount = lhs.consumers.collect {
           case w@Op(_: DRAMAlloc[_,_] | _: DRAMDealloc[_,_]) => w
         }.size
@@ -27,21 +27,25 @@ trait ChiselGenDRAM extends ChiselGenCommon {
       }
 
     case DRAMAlloc(dram, dims) =>
-      val id = requesters.size
-      val parent = lhs.parent
-      val invEnable = src"""${DL(src"${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}", lhs.fullDelay, true)}"""
-      emitt(src"${dram}.io.appReq($id).valid := $invEnable")
-      emitt(src"${dram}.io.appReq($id).bits.allocDealloc := true.B")
-      emitt(src"${dram}.io.appReq($id).bits.size := ${dims}.r")
-      requesters += (lhs -> id)
+      if (inHw) {
+        val id = requesters.size
+        val parent = lhs.parent
+        val invEnable = src"""${DL(src"${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}", lhs.fullDelay, true)}"""
+        emitt(src"${dram}.io.appReq($id).valid := $invEnable")
+        emitt(src"${dram}.io.appReq($id).bits.allocDealloc := true.B")
+        emitt(src"${dram}.io.appReq($id).bits.size := ${dims}.r")
+        requesters += (lhs -> id)
+      }
 
     case DRAMDealloc(dram) =>
-      val id = requesters.size
-      val parent = lhs.parent
-      val invEnable = src"""${DL(src"${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}", lhs.fullDelay, true)}"""
-      emitt(src"${dram}.io.appReq($id).valid := $invEnable")
-      emitt(src"${dram}.io.appReq($id).bits.allocDealloc := false.B")
-      requesters += (lhs -> id)
+      if (inHw) {
+        val id = requesters.size
+        val parent = lhs.parent
+        val invEnable = src"""${DL(src"${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}", lhs.fullDelay, true)}"""
+        emitt(src"${dram}.io.appReq($id).valid := $invEnable")
+        emitt(src"${dram}.io.appReq($id).bits.allocDealloc := false.B")
+        requesters += (lhs -> id)
+      }
 
     case GetDRAMAddress(dram) =>
       emit(src"val $lhs = ${dram}.io.appResp.addr")
