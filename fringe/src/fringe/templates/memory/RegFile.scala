@@ -35,17 +35,19 @@ class RegFileIO(val w: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0,
     val argOuts = Vec(numArgOuts, Flipped(Valid(Bits(w.W))))
     val argOutLoopbacks = Output(Vec(numArgOuts, Bits(w.W)))
 
+    val debug = Vec(numDebugs, Flipped(Valid(Bits(w.W))))
+
     val outStatus = Flipped(Valid(Bits(w.W)))
     val inStatus = Output(Bits(w.W))
 
     val outCommand = Flipped(Valid(Bits(w.W)))
     val inCommand = Output(Bits(w.W))
 
-    val outHeapStatus = Flipped(Valid(Bits(w.W)))
-    val inHeapStatus = Output(Bits(w.W))
+    val outHeapCmdStatus = Flipped(Valid(Bits(w.W)))
+    val inHeapCmdStatus = Output(Bits(w.W))
 
-    val outHeapCommand = Flipped(Valid(Bits(w.W)))
-    val inHeapCommand = Output(Bits(w.W))
+    val outHeapArgResp = Flipped(Valid(Bits(w.W)))
+    val inHeapArgResp = Output(Bits(w.W))
   })
 
   val regs = List.tabulate(regCount) { i =>
@@ -65,9 +67,9 @@ class RegFileIO(val w: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0,
           case RegType.command =>
             (io.inCommand, io.outCommand)
           case RegType.heapStatus =>
-            (io.inHeapStatus, io.outHeapStatus)
+            (io.inHeapCmdStatus, io.outHeapCmdStatus)
           case RegType.heapCommand =>
-            (io.inHeapCommand, io.outHeapCommand)
+            (io.inHeapArgResp, io.outHeapArgResp)
           case => _
         }
 
@@ -89,8 +91,8 @@ class RegFileIO(val w: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0,
         ff.io.reset := reset.toBool
         io.argOutLoopbacks(regId) := ff.io.out
       case RegType.debug =>
-        ff.io.enable := addrWr | io.argOuts(regId).valid
-        ff.io.in := Mux(addrWr, io.wdata, io.argOuts(regId).bits)
+        ff.io.enable := addrWr | io.debug(regId).valid
+        ff.io.in := io.debug(regId).bits
         ff.reset := reset.toBool
         ff.io.reset := reset.toBool
     }

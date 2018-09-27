@@ -43,7 +43,7 @@ class FringeArria10 (
     // Accel Scalar IO
     val argIns          = Output(Vec(NUM_ARG_INS, UInt(w.W)))
     val argOuts         = Vec(NUM_ARG_OUTS, Flipped(Decoupled(UInt(w.W))))
-    val argOutLoopbacks = Output(Vec(NUM_ARG_LOOPS, UInt(w.W)))
+    val argOutLoopbacks = Output(Vec(NUM_ARG_OUTS, UInt(w.W)))
 
     // Accel memory IO
     val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)

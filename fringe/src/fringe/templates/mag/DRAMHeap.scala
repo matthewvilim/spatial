@@ -10,7 +10,10 @@ class DRAMHeap (
   val numAlloc: Int
 ) extends Module {
 
-  val io = IO(new HeapIO(numAlloc))
+  val io = IO(Bundle {
+    val host = new HeapIO(1)
+    val accel = new HeapIO(numAlloc)
+  })
 
   val reqIdx = PriorityEncoder(io.req.map { _.valid })
   val req = io.req(reqIdx)

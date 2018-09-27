@@ -129,7 +129,7 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
   timeoutCtr.io.stride := 1.U
   timeoutCtr.io.enable := localEnable
 
-  io.argIns.zipWithIndex.foreach{case (p, i) => p := regIO.io.argIns(i+2)}
+  io.argIns := regIO.io.argIns
 
   val depulser = Module(new Depulser())
   depulser.io.in := io.done | timeoutCtr.io.done
@@ -155,7 +155,12 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
     }
   }
 
+  regIO.io.argOuts := io.argOuts
   io.argOutLoopbacks := regIO.io.argOutLoopbacks
+  regIO.io.debug.zipWithIndex.foreach { case (d, i) =>
+    d.valid := true.B
+    d.bits := mags(debugChannelID).io.debugSignals(i)
+  }
 
   // Memory address generator
   val magConfig = Wire(MAGOpcode())
@@ -180,7 +185,13 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
   mags(debugChannelID).io.CLOCKCONVERT_AXI <> io.CLOCKCONVERT_AXI
 
   val heap = Module(new DRAMHeap(numAllocators))
-  heap.io <> io.heap
+  heap.io.accel <> io.heap
+
+  val hostHeap = heap.io.host(0)
+  regIO.io.outHeapCmdStatus.valid := hostHeap.req.valid
+  regIO.io.outHeapCmdStatus.bits := Mux(hostHeap.req.bits.allocDealloc, 1.U, 2.U)
+  hostHeap.resp.valid := Mux(regIO.io.inHeapCmdStatus, 3.U, 4.U)
+  hostHeap.resp.bits := reg.io.inHeapArgResp.bits
 
   // io.dbg <> mags(debugChannelID).io.dbg
 
