@@ -14,6 +14,14 @@ public:
   // Some constants for Top and Fringe
   const uint32_t commandReg = 0;
   const uint32_t statusReg = 1;
+  const uint32_t heapCmdStatusReg = 2;
+  const uint32_t heapArgRespReg = 3;
+
+  const uint32_t heapAllocCmd = 1;
+  const uint32_t heapDeallocCmd = 2;
+  const uint32_t heapAllocResp = 3;
+  const uint32_t heapDeallocResp = 4;
+
   const uint64_t maxCycles = 50000000;
 
   DUTTester(DUT* _dut, VerilatedVcdC *_tfp = NULL) : PeekPokeTester(_dut, _tfp) {
@@ -55,6 +63,21 @@ public:
     while((status == 0) && (numCycles <= maxCycles)) {
       step();
       status = readReg(statusReg);
+
+      uint64_t heapCmd = readReg(heapCmdStatusReg);
+      uint64_t heapArg = readReg(heapArgRespReg);
+      switch (heapCmd) {
+        case heapAllocCmd:
+          void *m = malloc(heapArg)
+          writeReg(heapArgRespReg, (uint64_t)m)
+          writeReg(heapCmdStatusReg, heapAllocResp)
+          break;
+        case heapDeallocCmd:
+          free((void *)heapArg)
+          writeReg(heapCmdStatusReg, heapDeallocResp)
+          break;
+        default: break;
+      }
     }
     finishSim();
     std::cout << "Design ran for " << numCycles << " cycles" << std::endl;
