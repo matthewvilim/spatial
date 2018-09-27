@@ -16,9 +16,6 @@ import fringe.templates.memory.RegFile
   * @param axiParams TODO: What is this?
   */
 class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extends Module {
-  val commandReg = 0  // TODO: These vals are used in test only, logic below does not use them.
-  val statusReg = 1   //       Changing these values alone has no effect on the logic below.
-
   // Some constants (mostly MAG-related) that will later become module parameters
   val v = globals.target.wordsPerStream
   val numOutstandingBursts = 1024  // Picked arbitrarily
@@ -44,7 +41,7 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
     // Accel Scalar IO
     val argIns          = Output(Vec(NUM_ARG_INS, UInt(regWidth.W)))
     val argOuts         = Vec(NUM_ARG_OUTS, Flipped(Decoupled(UInt(regWidth.W))))
-    val argOutLoopbacks = Output(Vec(NUM_ARG_LOOPS, UInt(regWidth.W)))
+    val argOutLoopbacks = Output(Vec(NUM_ARG_OUTS, UInt(regWidth.W)))
 
     // Accel memory IO
     val memStreams = new AppStreams(LOAD_STREAMS, STORE_STREAMS)
@@ -96,36 +93,32 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
     mag
   }
  
-  val heap = Module(new DRAMHeap(numAllocators))
-  heap.io <> io.heap
-
   val numDebugs = mags(debugChannelID).numDebugs
-  val numRegs = NUM_ARGS + 2 - NUM_ARG_INS + numDebugs // (command, status registers)
 
   // Scalar, command, and status register file
-  val regs = Module(new RegFile(regWidth, numRegs, numArgIns+2, numArgOuts+1+numDebugs, numArgIOs, argOutLoopbacksMap))
-  regs.io.raddr := io.raddr
-  regs.io.waddr := io.waddr
-  regs.io.wen := io.wen
-  regs.io.wdata := io.wdata
+  val regIO = Module(new RegFileIO(regWidth, numArgIns, numArgOuts, numArgIOs, numDebugs))
+  regIO.io.raddr := io.raddr
+  regIO.io.waddr := io.waddr
+  regIO.io.wen := io.wen
+  regIO.io.wdata := io.wdata
   // TODO: Fix this bug asap so that the axi42rf bridge verilog anticipates the 1 cycle delay of the data
   val bug239_hack = !(globals.target.isInstanceOf[VCS] || globals.target.isInstanceOf[ASIC])
   if (bug239_hack) {
-    io.rdata := regs.io.rdata
+    io.rdata := regIO.io.rdata
   }
   else {
-    io.rdata := chisel3.util.ShiftRegister(regs.io.rdata, 1)
+    io.rdata := chisel3.util.ShiftRegister(regIO.io.rdata, 1)
   }
   
 
-  val command = regs.io.argIns(0)                       // commandReg = first argIn
-  val curStatus = regs.io.argIns(1)                     // current status
+  val command = regIO.io.inCommand
+  val curStatus = regIO.io.inStatus
   val localEnable = command(0) === 1.U & !curStatus(0)  // enable = LSB of first argIn
   val localReset = command(1) === 1.U | reset.toBool    // reset = first argIn == 2
   io.enable := localEnable
   io.reset := localReset
-  regs.io.reset := localReset
-  regs.reset := reset.toBool
+  regIO.io.reset := localReset
+  regIO.reset := reset.toBool
 
   // Hardware time out (for debugging)
   val timeoutCycles = 12000000000L
@@ -136,7 +129,7 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
   timeoutCtr.io.stride := 1.U
   timeoutCtr.io.enable := localEnable
 
-  io.argIns.zipWithIndex.foreach{case (p, i) => p := regs.io.argIns(i+2)}
+  io.argIns.zipWithIndex.foreach{case (p, i) => p := regIO.io.argIns(i+2)}
 
   val depulser = Module(new Depulser())
   depulser.io.in := io.done | timeoutCtr.io.done
@@ -144,25 +137,25 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
   val status = Wire(EnqIO(UInt(regWidth.W)))
   status.bits := Cat(command(0) & timeoutCtr.io.done, command(0) & depulser.io.out.asUInt)
   status.valid := depulser.io.out
-  regs.io.argOuts.zipWithIndex.foreach { case (argOutReg, i) =>
+
+  regIO.io.outStatus.valid := status.valid
+  regIO.io.outStatus.bits := status.bits
+
+  regIO.io.argOuts.zipWithIndex.foreach { case (argOutReg, i) =>
     // Manually assign bits and valid, because direct assignment with :=
     // is causing issues with chisel compilation due to the 'ready' signal
     // which we do not care about
-    if (i == 0) { // statusReg: First argOut
-      argOutReg.bits := status.bits
-      argOutReg.valid := status.valid
-    }
-    else if (i <= numArgOuts) {
+    if (i == 0) {
+    } else if (i <= numArgOuts) {
       argOutReg.bits := io.argOuts(i-1).bits
       argOutReg.valid := io.argOuts(i-1).valid
-    }
-    else { // MAG debug regs
+    } else {
       argOutReg.bits := mags(debugChannelID).io.debugSignals(i-numArgOuts-1)
       argOutReg.valid := 1.U
     }
   }
 
-  io.argOutLoopbacks := regs.io.argOutLoopbacks
+  io.argOutLoopbacks := regIO.io.argOutLoopbacks
 
   // Memory address generator
   val magConfig = Wire(MAGOpcode())
@@ -185,6 +178,9 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
   mags(debugChannelID).io.DWIDTH_AXI <> io.DWIDTH_AXI
   mags(debugChannelID).io.PROTOCOL_AXI <> io.PROTOCOL_AXI
   mags(debugChannelID).io.CLOCKCONVERT_AXI <> io.CLOCKCONVERT_AXI
+
+  val heap = Module(new DRAMHeap(numAllocators))
+  heap.io <> io.heap
 
   // io.dbg <> mags(debugChannelID).io.dbg
 
