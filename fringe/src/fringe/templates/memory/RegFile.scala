@@ -10,11 +10,11 @@ class RegFileIO(val w: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0,
 
   object RegType extends Enumeration {
     type RegType = Value
-    val status, command, heapStatus, heapCommand, in, io, out, debug = Value
+    val status, command, heapCmdStatus, heapArgResp, in, io, out, debug = Value
   }
 
   val reservedReg = List((RegType.status, 0), (RegType.command, 1),
-                         (RegType.heapStatus, 2), (RegType.heapCommand, 3))
+                         (RegType.heapCmdStatus, 2), (RegType.heapArgResp, 3))
   val regLayout = reservedReg ++
                   List.tabulate(numArgIns) { i => (RegType.in, i) } ++
                   List.tabulate(numArgIOs) { i => (RegType.io, i) } ++
@@ -35,7 +35,7 @@ class RegFileIO(val w: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0,
     val argOuts = Vec(numArgOuts, Flipped(Valid(Bits(w.W))))
     val argOutLoopbacks = Output(Vec(numArgOuts, Bits(w.W)))
 
-    val debug = Vec(numDebugs, Flipped(Valid(Bits(w.W))))
+    val debug = Vec(numDebugReg, Flipped(Valid(Bits(w.W))))
 
     val outStatus = Flipped(Valid(Bits(w.W)))
     val inStatus = Output(Bits(w.W))
@@ -62,17 +62,16 @@ class RegFileIO(val w: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0,
     ff.io.reset := reset.toBool
 
     regType match {
-      case RegType.status | RegType.command | RegType.heapStatus | RegType.heapCommand =>
+      case RegType.status | RegType.command | RegType.heapCmdStatus | RegType.heapArgResp =>
         val (in, out) = regType match {
           case RegType.status =>
             (io.inStatus, io.outStatus)
           case RegType.command =>
             (io.inCommand, io.outCommand)
-          case RegType.heapStatus =>
+          case RegType.heapCmdStatus =>
             (io.inHeapCmdStatus, io.outHeapCmdStatus)
-          case RegType.heapCommand =>
+          case RegType.heapArgResp =>
             (io.inHeapArgResp, io.outHeapArgResp)
-          case => _
         }
 
         ff.io.enable := addrWr | out.valid

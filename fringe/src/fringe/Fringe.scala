@@ -9,7 +9,7 @@ import fringe.utils.Depulser
 import fringe.templates.axi4._
 import fringe.templates.mag.{MAGCore, DRAMHeap}
 import fringe.templates.counters.FringeCounter
-import fringe.templates.memory.RegFile
+import fringe.templates.memory.RegFileIO
 
 /** Top module for FPGA shell
   * @param blockingDRAMIssue TODO: What is this?
@@ -187,11 +187,14 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
   val heap = Module(new DRAMHeap(numAllocators))
   heap.io.accel <> io.heap
 
-  val hostHeap = heap.io.host(0)
-  regIO.io.outHeapCmdStatus.valid := hostHeap.req.valid
-  regIO.io.outHeapCmdStatus.bits := Mux(hostHeap.req.bits.allocDealloc, 1.U, 2.U)
-  hostHeap.resp.valid := Mux(regIO.io.inHeapCmdStatus, 3.U, 4.U)
-  hostHeap.resp.bits := reg.io.inHeapArgResp.bits
+  /*
+  val hostHeapReq = heap.io.host.req(0)
+  val hostHeapResp = heap.io.host.resp(0)
+  regIO.io.outHeapCmdStatus.valid := hostHeapReq.valid
+  regIO.io.outHeapCmdStatus.bits := Mux(hostHeapReq.bits.allocDealloc, 1.U, 2.U)
+  hostHeapResp.valid := Mux(regIO.io.inHeapCmdStatus, 3.U, 4.U)
+  hostHeapResp.bits := reg.io.inHeapArgResp.bits
+  */
 
   // io.dbg <> mags(debugChannelID).io.dbg
 
