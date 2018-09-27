@@ -58,6 +58,8 @@ class RegFileIO(val w: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0,
 
     val addrWr = io.wen & (io.waddr === addrId.U(addrWidth.W))
     ff.io.init := 0.U
+    ff.reset := reset.toBool
+    ff.io.reset := reset.toBool
 
     regType match {
       case RegType.status | RegType.command | RegType.heapStatus | RegType.heapCommand =>
@@ -75,26 +77,22 @@ class RegFileIO(val w: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0,
 
         ff.io.enable := addrWr | out.valid
         ff.io.in := Mux(addrWr, io.wdata, out.bits)
-        ff.reset := reset.toBool
-        ff.io.reset := reset.toBool
         in := ff.io.out
       case RegType.in =>
         ff.io.enable := addrWr
         ff.io.in := io.wdata
-        ff.reset := reset.toBool
-        ff.io.reset := reset.toBool
         io.argIns(regId) := ff.io.out
-      case RegType.out =>
+      case RegType.io =>
         ff.io.enable := addrWr | io.argOuts(regId).valid
         ff.io.in := Mux(addrWr, io.wdata, io.argOuts(regId).bits)
-        ff.reset := reset.toBool
-        ff.io.reset := reset.toBool
+        // TODO: add IO?
+      case RegType.out =>
+        ff.io.enable := io.argOuts(regId).valid
+        ff.io.in := io.argOuts(regId).bits
         io.argOutLoopbacks(regId) := ff.io.out
       case RegType.debug =>
-        ff.io.enable := addrWr | io.debug(regId).valid
+        ff.io.enable := io.debug(regId).valid
         ff.io.in := io.debug(regId).bits
-        ff.reset := reset.toBool
-        ff.io.reset := reset.toBool
     }
 
     ff
