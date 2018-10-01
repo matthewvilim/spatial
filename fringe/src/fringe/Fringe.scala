@@ -26,6 +26,13 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
   val d = 64        // FIFO depth: Controls FIFO sizes for address, size, and wdata
   val regWidth = 64 // Force 64-bit registers
 
+  class StatusReg extends Bundle {
+    val done = Bool()
+    val timeout = Bool()
+    val allocDealloc = UInt(2.W)
+    val sizeAddr = UInt((regWidth - 4).W)
+  }
+
   val axiLiteParams = new AXI4BundleParameters(64, 512, 1)
 
   val io = IO(new Bundle {
@@ -117,8 +124,8 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
   
 
   val command = regs.io.argIns(0)                       // commandReg = first argIn
-  val curStatus = regs.io.argIns(1)                     // current status
-  val localEnable = command(0) === 1.U & !curStatus(0)  // enable = LSB of first argIn
+  val curStatus = regs.io.argIns(1).asTypeOf(StatusReg)
+  val localEnable = command(0) === 1.U & !curStatus.done
   val localReset = command(1) === 1.U | reset.toBool    // reset = first argIn == 2
   io.enable := localEnable
   io.reset := localReset
@@ -139,9 +146,13 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
   val depulser = Module(new Depulser())
   depulser.io.in := io.done | timeoutCtr.io.done
   depulser.io.rst := ~command
-  val status = Wire(EnqIO(UInt(regWidth.W)))
-  status.bits := Cat(command(0) & timeoutCtr.io.done, command(0) & depulser.io.out.asUInt)
+  val status = Wire(Valid(new StatusReg))
   status.valid := depulser.io.out
+  status.bits.done := Mux(depulser.io.out, command(0) & depulser.io.out.asUInt, curStatus.done)
+  status.bits.timeout := Mux(depulser.io.out, command(0) & timeoutCtr.io.done, curStatus.timeout)
+  status.bits.allocDealloc := 1.U
+  status.bits.sizeAddr := 753.U
+
   regs.io.argOuts.zipWithIndex.foreach { case (argOutReg, i) =>
     // Manually assign bits and valid, because direct assignment with :=
     // is causing issues with chisel compilation due to the 'ready' signal
