@@ -33,7 +33,7 @@ trait ChiselGenDRAM extends ChiselGenCommon {
         val invEnable = src"""${DL(src"${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}", lhs.fullDelay, true)}"""
         emitt(src"${dram}.io.appReq($id).valid := $invEnable")
         emitt(src"${dram}.io.appReq($id).bits.allocDealloc := true.B")
-        emitt(src"${dram}.io.appReq($id).bits.size := ${dims}.r")
+        emitt(src"${dram}.io.appReq($id).bits.sizeAddr := ${dims}.r")
         requesters += (lhs -> id)
       }
 
@@ -48,7 +48,7 @@ trait ChiselGenDRAM extends ChiselGenCommon {
       }
 
     case GetDRAMAddress(dram) =>
-      emit(src"val $lhs = ${dram}.io.appResp.addr")
+      emit(src"val $lhs = ${dram}.io.addr")
 
     case _ => super.gen(lhs, rhs)
   }

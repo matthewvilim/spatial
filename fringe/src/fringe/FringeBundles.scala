@@ -180,20 +180,19 @@ class DebugSignals extends Bundle {
 
 }
 
-class HeapRequest extends Bundle {
+class HeapReq extends Bundle {
   val allocDealloc = Bool()
-  val size = UInt(64.W)
-  val addr = UInt(64.W)
+  val sizeAddr = UInt(64.W)
 }
 
-class HeapResponse extends Bundle {
+class HeapResp extends Bundle {
   val allocDealloc = Bool()
-  val addr = UInt(64.W)
+  val sizeAddr = UInt(64.W)
 }
 
 class HeapIO(numAlloc: Int) extends Bundle {
-  val req = Vec(numAlloc, Flipped(Valid(new HeapRequest)))
-  val resp = Vec(numAlloc, Valid(new HeapResponse))
+  val req = Vec(numAlloc, Flipped(Valid(new HeapReq)))
+  val resp = Vec(numAlloc, Valid(new HeapResp))
 
   override def cloneType(): this.type = new HeapIO(numAlloc).asInstanceOf[this.type]
 }

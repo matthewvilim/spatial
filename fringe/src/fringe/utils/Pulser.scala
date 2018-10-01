@@ -13,3 +13,4 @@ class Pulser() extends Module {
   val commandReg = RegNext(io.in, false.B)
   io.out := io.in & (commandReg ^ io.in)
 }
+

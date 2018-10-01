@@ -11,19 +11,17 @@ class DRAMHeap (
 ) extends Module {
 
   val io = IO(new Bundle {
-    val host = new HeapIO(1)
     val accel = new HeapIO(numAlloc)
+    val host = Flipped(new HeapIO(1))
   })
 
   val reqIdx = PriorityEncoder(io.accel.req.map { _.valid })
   val req = io.accel.req(reqIdx)
 
-  val delayedReqIdx = getRetimed(reqIdx, 200)
-  val delayedReq = getRetimed(req, 200)
+  io.host.req(0) := req
 
   io.accel.resp.zipWithIndex.foreach { case (resp, i) =>
-    resp.valid := delayedReqIdx === i.U
-    resp.bits.allocDealloc := req.bits.allocDealloc
-    resp.bits.addr := delayedReqIdx
+    resp.valid := (reqIdx === i.U) & io.host.resp(0).valid
+    resp.bits := io.host.resp(0).bits
   }
 }

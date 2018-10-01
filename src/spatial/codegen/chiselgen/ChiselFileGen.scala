@@ -179,7 +179,7 @@ trait ChiselFileGen extends ChiselCodegen {
         emit ("val numArgIOs = numArgIOs_reg")
         emit ("val numArgInstrs = numArgOuts_instr")
         emit ("val numArgBreakpts = numArgOuts_breakpts")
-        emit (s"""new Top("${spatialConfig.target.name}", () => Module(new AccelTop(w, numArgIns, numArgOuts, numArgIOs, numArgOuts_instr + numArgBreakpts, numAllocators, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo)))""")
+        emit (s"""new Top("${spatialConfig.target.name}", () => Module(new AccelTop(w, numArgIns, numArgOuts, numArgIOs, numArgOuts_instr + numArgBreakpts, io_argOutLoopbacksMap, numAllocators, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo)))""")
         // emit ("new Top(w, numArgIns, numArgOuts, numArgIOs, numArgOuts_instr + numArgBreakpts, io_argOutLoopbacksMap, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, globals.target)")
         close("}")
         emit ("def tester = { c: DUTType => new TopUnitTester(c) }")
