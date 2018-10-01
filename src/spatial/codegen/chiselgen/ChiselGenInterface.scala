@@ -57,6 +57,7 @@ trait ChiselGenInterface extends ChiselGenCommon {
       emitt(src"""${lhs}.r := io.argIns(api.${id}_arg)""")
 
     case RegRead(reg)  if reg.isArgOut =>
+      argOutLoopbacks.getOrElseUpdate(argOuts(reg), argOutLoopbacks.toList.length)
       emitGlobalWireMap(src"""${lhs}""",src"Wire(${reg.tp.typeArgs.head})")
       emitt(src"""${lhs}.r := io.argOutLoopbacks(${argOuts(reg)})""")
 
@@ -115,13 +116,13 @@ trait ChiselGenInterface extends ChiselGenCommon {
       loadParMapping = loadParMapping :+ s"""StreamParInfo(${bitWidth(dram.tp.typeArgs.head)}, ${par}, 0, false)"""
       loadsList = loadsList :+ dram
 
-      emit(src"${swap(cmdStream, Ready)} := $dram.io.appResp.allocDealloc & io.memStreams.loads($id).cmd.ready // Not sure why the cmdStream ready used to be delayed")
+      emit(src"${swap(cmdStream, Ready)} := io.memStreams.loads($id).cmd.ready // Not sure why the cmdStream ready used to be delayed")
       val (addrMSB, addrLSB)  = getField(cmdStream.tp.typeArgs.head, "offset")
       val (sizeMSB, sizeLSB)  = getField(cmdStream.tp.typeArgs.head, "size")
       val (isLdMSB, isLdLSB)  = getField(cmdStream.tp.typeArgs.head, "isLoad")
       emit(src"io.memStreams.loads($id).cmd.bits.addr := ${cmdStream}(0)($addrMSB,$addrLSB)")
       emit(src"io.memStreams.loads($id).cmd.bits.size := ${cmdStream}(0)($sizeMSB,$sizeLSB)")
-      emit(src"io.memStreams.loads($id).cmd.valid := ${swap(cmdStream, Valid)} & ${swap(cmdStream, Ready)}")
+      emit(src"io.memStreams.loads($id).cmd.valid :=  ${swap(cmdStream, Valid)} & ${swap(cmdStream, Ready)}")
       emit(src"io.memStreams.loads($id).cmd.bits.isWr := ~${cmdStream}(0)($isLdMSB,$isLdLSB)")
       emit(src"io.memStreams.loads($id).cmd.bits.isSparse := 0.U")
 
@@ -142,10 +143,10 @@ trait ChiselGenInterface extends ChiselGenCommon {
       loadParMapping = loadParMapping :+ s"""StreamParInfo(${bitWidth(dram.tp.typeArgs.head)}, ${par}, 0, true)"""
       loadsList = loadsList :+ dram
 
-      emit(src"${swap(cmdStream, Ready)} := $dram.io.appResp.allocDealloc & io.memStreams.loads($id).cmd.ready // Not sure why the cmdStream ready used to be delayed")
+      emit(src"${swap(cmdStream, Ready)} := io.memStreams.loads($id).cmd.ready // Not sure why the cmdStream ready used to be delayed")
       emit(src"io.memStreams.loads($id).cmd.bits.addr := ${cmdStream}(0).r")
       emit(src"io.memStreams.loads($id).cmd.bits.size := 1.U")
-      emit(src"io.memStreams.loads($id).cmd.valid := ${swap(cmdStream, Valid)} & ${swap(cmdStream, Ready)}")
+      emit(src"io.memStreams.loads($id).cmd.valid :=  ${swap(cmdStream, Valid)} & ${swap(cmdStream, Ready)}")
       emit(src"io.memStreams.loads($id).cmd.bits.isWr := false.B")
       emit(src"io.memStreams.loads($id).cmd.bits.isSparse := 1.U")
 
@@ -183,11 +184,11 @@ trait ChiselGenInterface extends ChiselGenCommon {
 
       emit(src"io.memStreams.stores($id).cmd.bits.addr := ${cmdStream}(0)($addrMSB,$addrLSB)")
       emit(src"io.memStreams.stores($id).cmd.bits.size := ${cmdStream}(0)($sizeMSB,$sizeLSB)")
-      emit(src"io.memStreams.stores($id).cmd.valid := ${swap(cmdStream, Valid)} & ${swap(cmdStream, Ready)}")
+      emit(src"io.memStreams.stores($id).cmd.valid :=  ${swap(cmdStream, Valid)} & ${swap(cmdStream, Ready)}")
       emit(src"io.memStreams.stores($id).cmd.bits.isWr := ~${cmdStream}(0)($isLdMSB,$isLdLSB)")
       emit(src"io.memStreams.stores($id).cmd.bits.isSparse := 0.U")
 
-      emit(src"${swap(cmdStream, Ready)} := $dram.io.appResp.allocDealloc & io.memStreams.stores($id).cmd.ready")
+      emit(src"${swap(cmdStream, Ready)} := io.memStreams.stores($id).cmd.ready")
       emit(src"""${swap(ackStream, NowValid)} := io.memStreams.stores($id).wresp.valid""")
       emit(src"""${swap(ackStream, Valid)} := ${DL(swap(ackStream, NowValid), src"${ackStream.readers.head.fullDelay}.toInt", true)}""")
       emit(src"""io.memStreams.stores($id).wresp.ready := ${swap(ackStream, Ready)}""")
@@ -213,10 +214,10 @@ trait ChiselGenInterface extends ChiselGenCommon {
       emit(src"io.memStreams.stores($id).wdata.valid := ${swap(cmdStream, Valid)}")
       emit(src"io.memStreams.stores($id).cmd.bits.addr := ${cmdStream}(0)($addrMSB, $addrLSB) // TODO: Is this always a vec of size 1?")
       emit(src"io.memStreams.stores($id).cmd.bits.size := 1.U")
-      emit(src"io.memStreams.stores($id).cmd.valid := ${swap(cmdStream, Valid)} & ${swap(cmdStream, Ready)}")
+      emit(src"io.memStreams.stores($id).cmd.valid :=  ${swap(cmdStream, Valid)} & ${swap(cmdStream, Ready)}")
       emit(src"io.memStreams.stores($id).cmd.bits.isWr := 1.U")
       emit(src"io.memStreams.stores($id).cmd.bits.isSparse := 1.U")
-      emit(src"${swap(cmdStream, Ready)} := $dram.io.appResp.allocDealloc & io.memStreams.stores($id).cmd.ready & io.memStreams.stores($id).wdata.ready")
+      emit(src"${swap(cmdStream, Ready)} := io.memStreams.stores($id).cmd.ready & io.memStreams.stores($id).wdata.ready")
       emit(src"""${swap(ackStream, NowValid)} := io.memStreams.stores($id).wresp.valid""")
       emit(src"""${swap(ackStream, Valid)} := ${DL(swap(ackStream, NowValid), src"${ackStream.readers.head.fullDelay}.toInt", true)}""")
       emit(src"""io.memStreams.stores($id).wresp.ready := ${swap(ackStream, Ready)}""")
@@ -240,6 +241,7 @@ trait ChiselGenInterface extends ChiselGenCommon {
         argIns.zipWithIndex.foreach { case(p,i) => emit(s"""//${quote(p._1)} = argIns($i) ( ${p._1.name.getOrElse("")} )""") }
         argOuts.zipWithIndex.foreach { case(p,i) => emit(s"""//${quote(p._1)} = argOuts($i) ( ${p._1.name.getOrElse("")} )""") }
         argIOs.zipWithIndex.foreach { case(p,i) => emit(s"""//${quote(p._1)} = argIOs($i) ( ${p._1.name.getOrElse("")} )""") }
+        emit (s"val io_argOutLoopbacksMap: scala.collection.immutable.Map[Int,Int] = ${argOutLoopbacks}")
         emit ("")
         emit (s"// Memory streams")
         emit (src"""val loadStreamInfo = List(${loadParMapping.map(_.replace("FringeGlobals.",""))}) """)
@@ -253,6 +255,7 @@ trait ChiselGenInterface extends ChiselGenCommon {
         emit (s"val io_numArgIns_reg = ${argIns.toList.length}")
         emit (s"val io_numArgOuts_reg = ${argOuts.toList.length}")
         emit (s"val io_numArgIOs_reg = ${argIOs.toList.length}")
+        emit (s"val io_argOutLoopbacksMap: scala.collection.immutable.Map[Int,Int] = ${argOutLoopbacks}")
         emit ("// Memory Streams")
         emit (src"""val io_loadStreamInfo = List($loadParMapping) """)
         emit (src"""val io_storeStreamInfo = List($storeParMapping) """)

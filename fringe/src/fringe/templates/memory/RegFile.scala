@@ -5,25 +5,40 @@ import chisel3.util._
 import fringe.utils.{log2Up, MuxN}
 import fringe.globals
 
-class RegFileIO(val w: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0,
-                val numArgIOs: Int = 0, val numDebugMag: Int = 0,
-                val numInstrCounters: Int = 0) extends Module {
+/** Register file parameterized by width and height similar to SRAM
+  * @param w: Word width
+  * @param d: Number of registers
+  * @param numArgIns: Number of 'argin' registers that can be read in parallel
+  * @param numArgOuts: Number of 'argOut' registers that can be written to in parallel
+  */
+class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0, val numArgIOs: Int = 0, val argOutLoopbacksMapRaw: scala.collection.immutable.Map[Int,Int]) extends Module {
+  val addrWidth = globals.target.regFileAddrWidth(d)
+  val pureArgIns = numArgIns-numArgIOs
+  val pureArgOuts = numArgOuts-numArgIOs
+  val argInRange = List(0, 1) ++ (2 until numArgIns).toList
+  val argOutRange = List(1) ++ (pureArgIns until (numArgIns + pureArgOuts - 1)).toList
+  val argOutLoopbacksMap = argOutLoopbacksMapRaw.map{case (k,v) => (k + 1 -> v)}
+  // Console.println("argin: " + argInRange + ", argout: " + argOutRange)
 
-  object RegType extends Enumeration {
-    type RegType = Value
-    val status, command, heapCmdStatus, heapArgResp, in, io, out, magDebug, instrument = Value
+  /*
+      _____________________________
+     |  |  |  |  |  |  |  |  |  |  |
+     ```````````````````````````````
+       ^ ^   ^ ^   ^ ^   ^ ^   ^ ^
+  StatusRegs  |   ArgIOs  |  ArgInstrs
+          ArgIns       ArgOuts
+                   
+  */
+  // Helper function to convert an argOut index into
+  // register index. Used in the unit test
+  def argOut2RegIdx(argOut: Int) = {
+    argOutRange(argOut)
   }
 
-  val reservedReg = List((RegType.status, 0), (RegType.command, 1),
-                         (RegType.heapCmdStatus, 2), (RegType.heapArgResp, 3))
-  val regLayout = reservedReg ++
-                  List.tabulate(numArgIns) { i => (RegType.in, i) } ++
-                  List.tabulate(numArgIOs) { i => (RegType.io, i) } ++
-                  List.tabulate(numArgOuts) { i => (RegType.out, i) } ++
-                  List.tabulate(numDebugMag) { i => (RegType.magDebug, i) }
-  val regCount = regLayout.size
-
-  val addrWidth = globals.target.regFileAddrWidth(regCount)
+  // Helper function to convert reg index to argOut index.
+  def regIdx2ArgOut(regIdx: Int) = {
+    argOutRange.indexOf(regIdx)
+  }
 
   val io = IO(new Bundle {
     val raddr = Input(UInt(addrWidth.W))
@@ -32,89 +47,59 @@ class RegFileIO(val w: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0,
     val wdata = Input(Bits(w.W))
     val rdata = Output(Bits(w.W))
     val reset = Input(Bool())
-    val argIns = Output(Vec(numArgIns, Bits(w.W)))
-    val argOuts = Vec(numArgOuts, Flipped(Valid(Bits(w.W))))
-    val argOutLoopbacks = Output(Vec(numArgOuts, Bits(w.W)))
-
-    val magDebug = Vec(numDebugMag, Flipped(Valid(Bits(w.W))))
-    val argInstrs = Vec(numDebugMag, Flipped(Valid(Bits(w.W))))
-
-    val outStatus = Flipped(Valid(Bits(w.W)))
-    val inStatus = Output(Bits(w.W))
-
-    val outCommand = Flipped(Valid(Bits(w.W)))
-    val inCommand = Output(Bits(w.W))
-
-    val outHeapCmdStatus = Flipped(Valid(Bits(w.W)))
-    val inHeapCmdStatus = Output(Bits(w.W))
-
-    val outHeapArgResp = Flipped(Valid(Bits(w.W)))
-    val inHeapArgResp = Output(Bits(w.W))
+    val argIns = Output(Vec(numArgIns, UInt(w.W)))
+    val argOuts = Vec(numArgOuts, Flipped(Decoupled(UInt(w.W))))
+    val argOutLoopbacks = Output(Vec(1 max argOutLoopbacksMap.toList.length, UInt(w.W)))
   })
 
-  val regs = List.tabulate(regCount) { i =>
-    val ff = Module(new FringeFF(Bits(w.W)))
-    val addrId = if (globals.target.isInstanceOf[fringe.targets.zcu.ZCU]) i*2 else i
-
-    val (regType, regId) = regLayout(i)
-
-    val addrWr = io.wen & (io.waddr === addrId.U(addrWidth.W))
-    ff.io.init := 0.U
-    ff.reset := reset.toBool
-    ff.io.reset := reset.toBool
-
-    regType match {
-      case RegType.status | RegType.command | RegType.heapCmdStatus | RegType.heapArgResp =>
-        val (in, out) = regType match {
-          case RegType.status =>
-            (io.inStatus, io.outStatus)
-          case RegType.command =>
-            (io.inCommand, io.outCommand)
-          case RegType.heapCmdStatus =>
-            (io.inHeapCmdStatus, io.outHeapCmdStatus)
-          case RegType.heapArgResp =>
-            (io.inHeapArgResp, io.outHeapArgResp)
-        }
-
-        ff.io.enable := addrWr | out.valid
-        ff.io.in := Mux(addrWr, io.wdata, out.bits)
-        in := ff.io.out
-      case RegType.in =>
-        ff.io.enable := addrWr
-        ff.io.in := io.wdata
-        io.argIns(regId) := ff.io.out
-      case RegType.io =>
-        ff.io.enable := addrWr | io.argOuts(regId).valid
-        ff.io.in := Mux(addrWr, io.wdata, io.argOuts(regId).bits)
-        // TODO: add IO?
-      case RegType.out =>
-        ff.io.enable := io.argOuts(regId).valid
-        ff.io.in := io.argOuts(regId).bits
-        io.argOutLoopbacks(regId) := ff.io.out
-      case RegType.magDebug =>
-        ff.io.enable := io.magDebug(regId).valid
-        ff.io.in := io.magDebug(regId).bits
-      case RegType.instrument =>
-        ff.io.enable := io.instrument(regId).valid
-        ff.io.in := io.instrument(regId).bits
+  // Sanity-check module parameters
+  Predef.assert(numArgIns >= 0, s"Invalid numArgIns ($numArgIns): must be >= 0.")
+  Predef.assert(numArgOuts >= 0, s"Invalid numArgOuts ($numArgOuts): must be >= 0.")
+  Predef.assert(numArgIns <= d, s"numArgIns ($numArgIns) must be less than number of registers ($d)!")
+  Predef.assert(numArgOuts <= d, s"numArgOuts ($numArgOuts) must be less than number of registers ($d)!")
+  
+  val regs = List.tabulate(d) { i =>
+    val id = if (globals.target.isInstanceOf[fringe.targets.zcu.ZCU]) i*2 else i
+    val ff = Module(new FringeFF(UInt(w.W)))
+    if ((argOutRange contains i) & (argInRange contains i)) {
+      ff.io.enable := Mux(io.wen & (io.waddr === id.U(addrWidth.W)), io.wen & (io.waddr === id.U(addrWidth.W)), io.argOuts(argOutRange.indexOf(i)).valid)
+      ff.io.in := Mux(io.wen & (io.waddr === id.U(addrWidth.W)), io.wdata, io.argOuts(regIdx2ArgOut(i)).bits)
+      ff.reset := reset.toBool
+      ff.io.reset := reset.toBool // Board level
+    } else if (argOutRange contains i) {
+      ff.io.enable := io.argOuts(argOutRange.indexOf(i)).valid | (io.wen & (io.waddr === id.U(addrWidth.W)))
+      ff.io.in := Mux(io.argOuts(regIdx2ArgOut(i)).valid, io.argOuts(regIdx2ArgOut(i)).bits, io.wdata)
+      if (argOutLoopbacksMap.contains(regIdx2ArgOut(i))) {io.argOutLoopbacks(argOutLoopbacksMap(regIdx2ArgOut(i))) := ff.io.out}
+      ff.reset := io.reset
+      ff.io.reset := reset.toBool //io.reset // reset.toBool 
+    } else {
+      ff.io.enable := io.wen & (io.waddr === id.U(addrWidth.W))
+      ff.io.in := io.wdata
+      ff.reset := reset.toBool
+      ff.io.reset := reset.toBool // Board level
     }
 
+    ff.io.init := 0.U
     ff
   }
 
-  val readMux = Module(new MuxN(Bits(w.W), regCount))
-  readMux.io.ins := Vec(regs.map { _.io.out })
+  val rport = Module(new MuxN(UInt(w.W), d))
+  val regOuts = Vec(regs.map{_.io.out})
+  rport.io.ins := regOuts
   if (globals.target.isInstanceOf[fringe.targets.zcu.ZCU]) {
-    readMux.io.sel := io.raddr / 2.U(addrWidth.W)
-    io.rdata := readMux.io.out
+    rport.io.sel := io.raddr / 2.U(addrWidth.W)
+    io.rdata := rport.io.out
   } else if (globals.target.isInstanceOf[fringe.targets.zcu.ZCU]) {
     // Use MSB of addr to read either lower or upper 32 bits.  Bridge gives true addr bits 18:2
-    readMux.io.sel := io.raddr & Cat(Fill(15, true.B), false.B, Fill(16, true.B))
-    io.rdata := Mux(io.raddr(16), readMux.io.out(63,32), readMux.io.out(31,0))
+    rport.io.sel := io.raddr & Cat(Fill(15, true.B), false.B, Fill(16, true.B))
+    io.rdata := Mux(io.raddr(16), rport.io.out(63,32), rport.io.out(31,0))
   } else {
-    readMux.io.sel := io.raddr
-    io.rdata := readMux.io.out
+    rport.io.sel := io.raddr
+    io.rdata := rport.io.out
   }
+  
+
+  io.argIns := Vec(regOuts.zipWithIndex.filter { case (arg, idx) => argInRange.contains(idx) }.map {_._1})
 }
 
 class RegFilePure[T <: Data](val t: T, val d: Int) extends Module {
