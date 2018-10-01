@@ -34,6 +34,7 @@ abstract class ZynqLike extends DeviceTarget {
       fringeArgOut.bits := accelArgOut.bits
       fringeArgOut.valid := accelArgOut.valid
     }
+    fringe.io.argInstrs := accel.io.argInstrs
     // accel.io.argIOIns := fringe.io.argIOIns
     // fringe.io.argIOOuts.zip(accel.io.argIOOuts) foreach { case (fringeArgOut, accelArgOut) =>
     //     fringeArgOut.bits := accelArgOut.bits

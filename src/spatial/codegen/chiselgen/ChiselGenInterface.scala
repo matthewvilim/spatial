@@ -240,7 +240,6 @@ trait ChiselGenInterface extends ChiselGenCommon {
         argIns.zipWithIndex.foreach { case(p,i) => emit(s"""//${quote(p._1)} = argIns($i) ( ${p._1.name.getOrElse("")} )""") }
         argOuts.zipWithIndex.foreach { case(p,i) => emit(s"""//${quote(p._1)} = argOuts($i) ( ${p._1.name.getOrElse("")} )""") }
         argIOs.zipWithIndex.foreach { case(p,i) => emit(s"""//${quote(p._1)} = argIOs($i) ( ${p._1.name.getOrElse("")} )""") }
-        emit (s"val io_argOutLoopbacksMap: scala.collection.immutable.Map[Int,Int] = ${argOutLoopbacks}")
         emit ("")
         emit (s"// Memory streams")
         emit (src"""val loadStreamInfo = List(${loadParMapping.map(_.replace("FringeGlobals.",""))}) """)
@@ -254,7 +253,6 @@ trait ChiselGenInterface extends ChiselGenCommon {
         emit (s"val io_numArgIns_reg = ${argIns.toList.length}")
         emit (s"val io_numArgOuts_reg = ${argOuts.toList.length}")
         emit (s"val io_numArgIOs_reg = ${argIOs.toList.length}")
-        emit (s"val io_argOutLoopbacksMap: scala.collection.immutable.Map[Int,Int] = ${argOutLoopbacks}")
         emit ("// Memory Streams")
         emit (src"""val io_loadStreamInfo = List($loadParMapping) """)
         emit (src"""val io_storeStreamInfo = List($storeParMapping) """)

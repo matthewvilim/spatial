@@ -35,7 +35,6 @@ trait ChiselGenCommon extends ChiselCodegen {
   var argOuts = scala.collection.mutable.HashMap[Sym[_], Int]()
   var argIOs = scala.collection.mutable.HashMap[Sym[_], Int]()
   var argIns = scala.collection.mutable.HashMap[Sym[_], Int]()
-  var argOutLoopbacks = scala.collection.mutable.HashMap[Int, Int]() // info about how to wire argouts back to argins in Fringe
   var drams = scala.collection.mutable.HashMap[Sym[_], Int]()
   /* List of break or exit nodes */
   var earlyExits: List[Sym[_]] = List()

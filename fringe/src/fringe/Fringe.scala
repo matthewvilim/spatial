@@ -42,6 +42,7 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
     val argIns          = Output(Vec(NUM_ARG_INS, UInt(regWidth.W)))
     val argOuts         = Vec(NUM_ARG_OUTS, Flipped(Decoupled(UInt(regWidth.W))))
     val argOutLoopbacks = Output(Vec(NUM_ARG_OUTS, UInt(regWidth.W)))
+    val argInstrs    = Vec(numArgInstrs, Flipped(Decoupled(UInt(regWidth.W))))
 
     // Accel memory IO
     val memStreams = new AppStreams(LOAD_STREAMS, STORE_STREAMS)
@@ -141,23 +142,10 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
   regIO.io.outStatus.valid := status.valid
   regIO.io.outStatus.bits := status.bits
 
-  regIO.io.argOuts.zipWithIndex.foreach { case (argOutReg, i) =>
-    // Manually assign bits and valid, because direct assignment with :=
-    // is causing issues with chisel compilation due to the 'ready' signal
-    // which we do not care about
-    if (i == 0) {
-    } else if (i <= numArgOuts) {
-      argOutReg.bits := io.argOuts(i-1).bits
-      argOutReg.valid := io.argOuts(i-1).valid
-    } else {
-      argOutReg.bits := mags(debugChannelID).io.debugSignals(i-numArgOuts-1)
-      argOutReg.valid := 1.U
-    }
-  }
-
   regIO.io.argOuts := io.argOuts
+  regIO.io.argInstrs := io.argInstrs
   io.argOutLoopbacks := regIO.io.argOutLoopbacks
-  regIO.io.debug.zipWithIndex.foreach { case (d, i) =>
+  regIO.io.magDebug.zipWithIndex.foreach { case (d, i) =>
     d.valid := true.B
     d.bits := mags(debugChannelID).io.debugSignals(i)
   }

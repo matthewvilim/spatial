@@ -52,7 +52,6 @@ object globals {
   var numArgOuts: Int = 1     // Number of ArgOut registers
   var numArgIOs: Int = 0      // Number of HostIO registers
   var numArgInstrs: Int = 0   // TODO: What is this?
-  var argOutLoopbacksMap: Map[Int,Int] = Map.empty // TODO: What is this?
 
   var loadStreamInfo: List[StreamParInfo] = Nil
   var storeStreamInfo: List[StreamParInfo] = Nil
@@ -70,7 +69,6 @@ object globals {
   def NUM_ARG_INS: Int = numArgIns
   def NUM_ARG_OUTS: Int = numArgOuts
   def NUM_ARG_IOS: Int = numArgIOs
-  def NUM_ARG_LOOPS: Int = argOutLoopbacksMap.size max 1
   def NUM_ARGS: Int = numArgIns + numArgOuts
   def NUM_STREAMS: Int = LOAD_STREAMS.size + STORE_STREAMS.size
 }

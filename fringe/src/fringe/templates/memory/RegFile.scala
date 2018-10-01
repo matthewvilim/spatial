@@ -6,11 +6,12 @@ import fringe.utils.{log2Up, MuxN}
 import fringe.globals
 
 class RegFileIO(val w: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0,
-                val numArgIOs: Int = 0, val numDebugReg: Int = 0) extends Module {
+                val numArgIOs: Int = 0, val numDebugMag: Int = 0,
+                val numInstrCounters: Int = 0) extends Module {
 
   object RegType extends Enumeration {
     type RegType = Value
-    val status, command, heapCmdStatus, heapArgResp, in, io, out, debug = Value
+    val status, command, heapCmdStatus, heapArgResp, in, io, out, magDebug, instrument = Value
   }
 
   val reservedReg = List((RegType.status, 0), (RegType.command, 1),
@@ -19,7 +20,7 @@ class RegFileIO(val w: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0,
                   List.tabulate(numArgIns) { i => (RegType.in, i) } ++
                   List.tabulate(numArgIOs) { i => (RegType.io, i) } ++
                   List.tabulate(numArgOuts) { i => (RegType.out, i) } ++
-                  List.tabulate(numDebugReg) { i => (RegType.debug, i) }
+                  List.tabulate(numDebugMag) { i => (RegType.magDebug, i) }
   val regCount = regLayout.size
 
   val addrWidth = globals.target.regFileAddrWidth(regCount)
@@ -35,7 +36,8 @@ class RegFileIO(val w: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0,
     val argOuts = Vec(numArgOuts, Flipped(Valid(Bits(w.W))))
     val argOutLoopbacks = Output(Vec(numArgOuts, Bits(w.W)))
 
-    val debug = Vec(numDebugReg, Flipped(Valid(Bits(w.W))))
+    val magDebug = Vec(numDebugMag, Flipped(Valid(Bits(w.W))))
+    val argInstrs = Vec(numDebugMag, Flipped(Valid(Bits(w.W))))
 
     val outStatus = Flipped(Valid(Bits(w.W)))
     val inStatus = Output(Bits(w.W))
@@ -89,9 +91,12 @@ class RegFileIO(val w: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0,
         ff.io.enable := io.argOuts(regId).valid
         ff.io.in := io.argOuts(regId).bits
         io.argOutLoopbacks(regId) := ff.io.out
-      case RegType.debug =>
-        ff.io.enable := io.debug(regId).valid
-        ff.io.in := io.debug(regId).bits
+      case RegType.magDebug =>
+        ff.io.enable := io.magDebug(regId).valid
+        ff.io.in := io.magDebug(regId).bits
+      case RegType.instrument =>
+        ff.io.enable := io.instrument(regId).valid
+        ff.io.in := io.instrument(regId).bits
     }
 
     ff
