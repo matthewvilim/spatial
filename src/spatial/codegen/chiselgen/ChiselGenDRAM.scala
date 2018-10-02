@@ -57,7 +57,7 @@ trait ChiselGenDRAM extends ChiselGenCommon {
   	inAccel{
       inGenn(out, "IOModule", ext) {
         emit("// Heap")
-        emit(src"val io_numAllocators = ${drams.size}")
+        emit(src"val io_numAllocators = scala.math.max(1, ${drams.size})")
       }
 
       inGen(out, "Instantiator.scala") {
