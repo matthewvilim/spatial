@@ -10,11 +10,12 @@ import spatial.lang._
   def dims = Nil
 }
 
-@op case class GetDRAMAddress[A:Bits,C[T]](dram: DRAM[A,C]) extends Primitive[I64] {
+@op case class DRAMAddress[A:Bits,C[T]](dram: DRAM[A,C]) extends Primitive[I64] {
   val A: Bits[A] = Bits[A]
 }
 
 @op case class DRAMAlloc[A:Bits,C[T]](dram: DRAM[A,C], dims: Seq[I32]) extends EnPrimitive[Void] {
+  val A: Bits[A] = Bits[A]
   override var ens: Set[Bit] = Set.empty
   override def effects: Effects = Effects.Writes(dram)
 }

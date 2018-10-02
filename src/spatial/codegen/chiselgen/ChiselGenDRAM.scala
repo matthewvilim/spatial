@@ -20,14 +20,16 @@ trait ChiselGenDRAM extends ChiselGenCommon {
           case w@Op(_: DRAMAlloc[_,_] | _: DRAMDealloc[_,_]) => w
         }.size
         emitGlobalModule(src"""val $lhs = Module(new DRAMAllocator($reqCount))""")
-        val id = drams.size
+        val id = accelDrams.size
         emitt(src"io.heap.req($id) := $lhs.io.heapReq")
         emitt(src"$lhs.io.heapResp := io.heap.resp($id)")
-        drams += (lhs -> id)
+        accelDrams += (lhs -> id)
+      } else {
+        hostDrams += (lhs -> hostDrams.size)
       }
 
     case DRAMAlloc(dram, dims) =>
-      if (inHw) {
+      if (accelDrams.contains(dram)) {
         val id = requesters.size
         val parent = lhs.parent
         val invEnable = src"""${DL(src"${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}", lhs.fullDelay, true)}"""
@@ -38,7 +40,7 @@ trait ChiselGenDRAM extends ChiselGenCommon {
       }
 
     case DRAMDealloc(dram) =>
-      if (inHw) {
+      if (accelDrams.contains(dram)) {
         val id = requesters.size
         val parent = lhs.parent
         val invEnable = src"""${DL(src"${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}", lhs.fullDelay, true)}"""
@@ -47,8 +49,14 @@ trait ChiselGenDRAM extends ChiselGenCommon {
         requesters += (lhs -> id)
       }
 
-    case GetDRAMAddress(dram) =>
-      emit(src"val $lhs = ${dram}.io.addr")
+    case DRAMAddress(dram) =>
+      if (accelDrams.contains(dram)) {
+        emit(src"val $lhs = ${dram}.io.addr")
+      } else {
+        val id = argHandle(dram)
+        emitGlobalWireMap(src"$lhs", src"Wire(${lhs.tp})")
+        emit(src"""$lhs.r := io.argIns(api.${id}_ptr)""")
+      }
 
     case _ => super.gen(lhs, rhs)
   }
@@ -57,12 +65,12 @@ trait ChiselGenDRAM extends ChiselGenCommon {
   	inAccel{
       inGenn(out, "IOModule", ext) {
         emit("// Heap")
-        emit(src"val io_numAllocators = scala.math.max(1, ${drams.size})")
+        emit(src"val io_numAllocators = scala.math.max(1, ${accelDrams.size})")
       }
 
       inGen(out, "Instantiator.scala") {
         emit(src"// Heap")
-        emit(src"val numAllocators = ${drams.size}")
+        emit(src"val numAllocators = ${accelDrams.size}")
       }
     }
     super.emitFooter()

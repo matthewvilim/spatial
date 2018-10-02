@@ -17,11 +17,13 @@ trait ScalaGenDRAM extends ScalaGenMemories {
       emitMemObject(lhs){
         emit(src"""object $lhs extends Memory[${op.A}]("${lhs.fullname}")""")
       }
-      val elementsPerBurst = spatialConfig.target.burstSize / op.A.nbits
-      //val size = src"""${dims.map(quote).mkString("*")} + $elementsPerBurst"""
-      //emit(src"$lhs.initMem($size,$zero)")
 
-    case GetDRAMAddress(dram) =>
+    case op@DRAMAlloc(dram, dims) =>
+      val elementsPerBurst = spatialConfig.target.burstSize / dram.A.nbits
+      val size = src"""${dims.map(quote).mkString("*")} + $elementsPerBurst"""
+      emit(src"$dram.initMem($size)")
+
+    case DRAMAddress(dram) =>
       emit(src"val $lhs = FixedPoint.fromInt(0)")
 
     case op@SetMem(dram, data) =>

@@ -41,7 +41,7 @@ abstract class DRAM[A:Bits,C[T]](implicit val evMem: C[A] <:< DRAM[A,C]) extends
   @api def dim4: I32 = dims.indexOrElse(4, I32(1))
 
   /** Returns the 64-bit address of this DRAM */
-  @api def address: I64 = stage(GetDRAMAddress(me))
+  @api def address: I64 = stage(DRAMAddress(me))
 }
 
 /** A 1-dimensional [[DRAM]] with elements of type A. */
