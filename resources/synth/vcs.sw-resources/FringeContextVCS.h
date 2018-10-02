@@ -346,7 +346,7 @@ public:
     sleep(0.1);
     writeReg(commandReg, 1);
 
-    while((~status.done && ~status.timeout) && (numCycles <= maxCycles)) {
+    while((!status.done && !status.timeout) && (numCycles <= maxCycles)) {
       step();
       status.bits = readReg(statusReg);
       switch (status.allocDealloc) {
@@ -365,7 +365,7 @@ public:
       }
     }
     EPRINTF("Design ran for %lu cycles, status = %u\n", numCycles, status);
-    if (~status.done && ~status.timeout) { // Design did not run to completion
+    if (!status.done && !status.timeout) { // Design did not run to completion
       EPRINTF("=========================================\n");
       EPRINTF("ERROR: Simulation terminated after %lu cycles\n", numCycles);
       EPRINTF("=========================================\n");
