@@ -56,19 +56,19 @@ abstract class DRAM[A:Bits,C[T]](implicit val evMem: C[A] <:< DRAM[A,C]) extends
 }
 object DRAM {
   /** Allocates a 1-dimensional [[DRAM1]] with capacity of `length` elements of type A. */
-  @api def apply[A:Bits](length: I32): DRAM1[A] = stage(DRAMStaticNew[A,DRAM1](Seq(length),zero[A]))
+  @api def apply[A:Bits](length: I32): DRAM1[A] = stage(DRAMHostNew[A,DRAM1](Seq(length),zero[A]))
 
   /** Allocates a 2-dimensional [[DRAM2]] with `rows` x `cols` elements of type A. */
-  @api def apply[A:Bits](rows: I32, cols: I32): DRAM2[A] = stage(DRAMStaticNew[A,DRAM2](Seq(rows,cols),zero[A]))
+  @api def apply[A:Bits](rows: I32, cols: I32): DRAM2[A] = stage(DRAMHostNew[A,DRAM2](Seq(rows,cols),zero[A]))
 
   /** Allocates a 3-dimensional [[DRAM3]] with the given dimensions and elements of type A. */
-  @api def apply[A:Bits](d0: I32, d1: I32, d2: I32): DRAM3[A] = stage(DRAMStaticNew[A,DRAM3](Seq(d0,d1,d2),zero[A]))
+  @api def apply[A:Bits](d0: I32, d1: I32, d2: I32): DRAM3[A] = stage(DRAMHostNew[A,DRAM3](Seq(d0,d1,d2),zero[A]))
 
   /** Allocates a 4-dimensional [[DRAM4]] with the given dimensions and elements of type A. */
-  @api def apply[A:Bits](d0: I32, d1: I32, d2: I32, d3: I32): DRAM4[A] = stage(DRAMStaticNew[A,DRAM4](Seq(d0,d1,d2,d3),zero[A]))
+  @api def apply[A:Bits](d0: I32, d1: I32, d2: I32, d3: I32): DRAM4[A] = stage(DRAMHostNew[A,DRAM4](Seq(d0,d1,d2,d3),zero[A]))
 
   /** Allocates a 5-dimensional [[DRAM5]] with the given dimensions and elements of type A. */
-  @api def apply[A:Bits](d0: I32, d1: I32, d2: I32, d3: I32, d4: I32): DRAM5[A] = stage(DRAMStaticNew[A,DRAM5](Seq(d0,d1,d2,d3,d4),zero[A]))
+  @api def apply[A:Bits](d0: I32, d1: I32, d2: I32, d3: I32, d4: I32): DRAM5[A] = stage(DRAMHostNew[A,DRAM5](Seq(d0,d1,d2,d3,d4),zero[A]))
 }
 
 /** A 1-dimensional [[DRAM]] with elements of type A. */
@@ -119,7 +119,7 @@ object DRAM {
 }
 
 object DRAM1 {
-  @api def apply[A:Bits]: DRAM1[A] = stage(DRAMDynNew[A,DRAM1]())
+  @api def apply[A:Bits]: DRAM1[A] = stage(DRAMAccelNew[A,DRAM1](1))
 }
 
 /** A 2-dimensional [[DRAM]] with elements of type A. */
@@ -144,7 +144,7 @@ object DRAM1 {
 }
 
 object DRAM2 {
-  @api def apply[A:Bits]: DRAM2[A] = stage(DRAMDynNew[A,DRAM2]())
+  @api def apply[A:Bits]: DRAM2[A] = stage(DRAMAccelNew[A,DRAM2](2))
 }
 
 /** A 3-dimensional [[DRAM]] with elements of type A. */
@@ -166,7 +166,7 @@ object DRAM2 {
 }
 
 object DRAM3 {
-  @api def apply[A:Bits]: DRAM3[A] = stage(DRAMDynNew[A,DRAM3]())
+  @api def apply[A:Bits]: DRAM3[A] = stage(DRAMAccelNew[A,DRAM3](3))
 }
 
 /** A 4-dimensional [[DRAM]] with elements of type A. */
@@ -183,7 +183,7 @@ object DRAM3 {
 }
 
 object DRAM4 {
-  @api def apply[A:Bits]: DRAM4[A] = stage(DRAMDynNew[A,DRAM4]())
+  @api def apply[A:Bits]: DRAM4[A] = stage(DRAMAccelNew[A,DRAM4](4))
 }
 
 /** A 5-dimensional [[DRAM]] with elements of type A. */
@@ -200,7 +200,7 @@ object DRAM4 {
 }
 
 object DRAM5 {
-  @api def apply[A:Bits]: DRAM5[A] = stage(DRAMDynNew[A,DRAM5]())
+  @api def apply[A:Bits]: DRAM5[A] = stage(DRAMAccelNew[A,DRAM5](5))
 }
 
 /** A sparse, 1-dimensional region of DRAM with elements of type A. */
