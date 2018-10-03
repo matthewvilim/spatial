@@ -129,6 +129,7 @@ trait ExternalAliases extends InternalAliases {
   lazy val CounterChain = spatial.lang.CounterChain
 
   type Wildcard = spatial.lang.Wildcard
+
 }
 
 /** Remaining aliases that shadow original Scala types. */

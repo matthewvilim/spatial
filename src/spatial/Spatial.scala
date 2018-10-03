@@ -23,8 +23,9 @@ import spatial.flows.SpatialFlowRules
 import spatial.rewrites.SpatialRewriteRules
 
 import spatial.util.spatialConfig
+import spatial.util.ParamLoader
 
-trait Spatial extends Compiler {
+trait Spatial extends Compiler with ParamLoader {
 
   val target: HardwareTarget = null   // Optionally overridden by the application
   final val desc: String = "Spatial compiler"
@@ -101,7 +102,6 @@ trait Spatial extends Compiler {
     lazy val cppCodegen    = CppGen(state)
     lazy val treeCodegen   = TreeGen(state)
     lazy val irCodegen     = HtmlIRGenSpatial(state)
-    lazy val memIrCodegen  = HtmlMemIRGenSpatial(state)
     lazy val scalaCodegen  = ScalaGenSpatial(state)
     lazy val pirCodegen    = PIRGenSpatial(state)
     lazy val dotFlatGen    = DotFlatGenSpatial(state)
@@ -163,7 +163,6 @@ trait Spatial extends Compiler {
         /** Code generation */
         treeCodegen         ==>
         irCodegen           ==>
-        memIrCodegen           ==>
         (spatialConfig.enableDot ? dotFlatGen)      ==>
         (spatialConfig.enableDot ? dotHierGen)      ==>
         (spatialConfig.enableSim   ? scalaCodegen)  ==>
@@ -281,6 +280,10 @@ trait Spatial extends Compiler {
     cli.opt[Unit]("runtime").action{ (_,_) =>
       spatialConfig.enableRuntimeModel = true
     }.text("Enable application runtime estimation")
+
+    cli.opt[String]("param-path").action{(x,_) => 
+      loadParams(x)
+    }.text("Set path to load application parameter")
   }
 
   override def settings(): Unit = {

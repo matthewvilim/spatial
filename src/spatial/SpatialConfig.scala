@@ -4,7 +4,6 @@ import argon.Config
 import spatial.dse.DSEMode
 import spatial.targets.HardwareTarget
 
-
 class SpatialConfig extends Config {
 
   var targetName: String = _
@@ -50,4 +49,5 @@ class SpatialConfig extends Config {
   var enableBufferCoalescing: Boolean = true
 
   var enablePIR = false
+
 }
