@@ -35,7 +35,7 @@ trait ChiselGenDRAM extends ChiselGenCommon {
           val invEnable = src"""${DL(src"${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}", lhs.fullDelay, true)}"""
           emitt(src"${dram}.io.appReq($id).valid := $invEnable")
           emitt(src"${dram}.io.appReq($id).bits.allocDealloc := true.B")
-          emitt(src"${dram}.io.appReq($id).bits.dims.zip($dims).foreach { case (a,b) a := b.r }")
+          emitt(src"${dram}.io.appReq($id).bits.dims.zip($dims).foreach { case (a,b) => a := b.r }")
           requesters += (lhs -> id)
         case _ =>
       }

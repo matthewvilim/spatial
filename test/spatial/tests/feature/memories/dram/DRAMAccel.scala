@@ -14,7 +14,7 @@ import spatial.dsl._
       if (size < 50) {
         dram(0::50) store sram
       }
-      dram.free()
+      dram.dealloc
     }
   }
 }

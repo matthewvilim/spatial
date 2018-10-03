@@ -43,6 +43,8 @@ abstract class DRAM[A:Bits,C[T]](implicit val evMem: C[A] <:< DRAM[A,C]) extends
   /** Returns the 64-bit address of this DRAM */
   @api def address: I64 = stage(DRAMAddress(me))
 
+  @api def dealloc: Void = stage(DRAMDealloc(this))
+
   @api override def neql(that: C[A]): Bit = {
     error(this.ctx, "Native comparison of DRAMs is unsupported. Use getMem to extract data.")
     error(this.ctx)
@@ -77,8 +79,7 @@ object DRAM {
   @api def length: I32 = dims.head
   @api override def size: I32 = dims.head
 
-  @api def alloc(len: I32): Void = stage(DRAMAlloc[A,DRAM1](this, Seq(len)))
-  @api def dealloc(): Void = stage(DRAMDealloc[A,DRAM1](this))
+  @api def alloc(len: I32): Void = stage(DRAMAlloc(this, Seq(len)))
 
   /** Creates a view of a sparse region of this DRAM1 for use in scatter and gather transfers. */
   @api def apply(addrs: SRAM1[I32]): DRAMSparseTile[A] = {
@@ -128,8 +129,7 @@ object DRAM1 {
   @api def rows: I32 = dims.head
   @api def cols: I32 = dim1
 
-  @api def alloc(rows: I32, cols: I32): Void = stage(DRAMAlloc[A,DRAM2](this, Seq(rows, cols)))
-  @api def dealloc(): Void = stage(DRAMDealloc[A,DRAM2](this))
+  @api def alloc(rows: I32, cols: I32): Void = stage(DRAMAlloc(this, Seq(rows, cols)))
 
 
   /** Creates a dense, burst transfer from the SRAM2 `data` to this region of main memory. */
@@ -151,8 +151,7 @@ object DRAM2 {
 @ref class DRAM3[A:Bits] extends DRAM[A,DRAM3] with Ref[Array[Any],DRAM3[A]] with Mem3[A,DRAM1,DRAM2,DRAM3] {
   def rank: Seq[Int] = Seq(0,1,2)
 
-  @api def alloc(d0: I32, d1: I32, d2: I32): Void = stage(DRAMAlloc[A,DRAM3](this, Seq(d0, d1, d2)))
-  @api def dealloc(): Void = stage(DRAMDealloc[A,DRAM3](this))
+  @api def alloc(d0: I32, d1: I32, d2: I32): Void = stage(DRAMAlloc(this, Seq(d0, d1, d2)))
 
   /** Creates a dense, burst transfer from the SRAM3 `data` to this region of main memory. */
   @api def store(data: SRAM3[A]): Void = {
@@ -173,8 +172,7 @@ object DRAM3 {
 @ref class DRAM4[A:Bits] extends DRAM[A,DRAM4] with Ref[Array[Any],DRAM4[A]] with Mem4[A,DRAM1,DRAM2,DRAM3,DRAM4] {
   def rank: Seq[Int] = Seq(0,1,2,3)
 
-  @api def alloc(d0: I32, d1: I32, d2: I32, d3: I32): Void = stage(DRAMAlloc[A,DRAM4](this, Seq(d0, d1, d2, d3)))
-  @api def dealloc(): Void = stage(DRAMDealloc[A,DRAM4](this))
+  @api def alloc(d0: I32, d1: I32, d2: I32, d3: I32): Void = stage(DRAMAlloc(this, Seq(d0, d1, d2, d3)))
 
   /** Creates a dense, burst transfer from the SRAM4 `data` to this region of main memory. */
   @api def store(data: SRAM4[A]): Void = {
@@ -190,8 +188,7 @@ object DRAM4 {
 @ref class DRAM5[A:Bits] extends DRAM[A,DRAM5] with Ref[Array[Any],DRAM5[A]] with Mem5[A,DRAM1,DRAM2,DRAM3,DRAM4,DRAM5] {
   def rank: Seq[Int] = Seq(0,1,2,3,4)
 
-  @api def alloc(d0: I32, d1: I32, d2: I32, d3: I32, d4: I32): Void = stage(DRAMAlloc[A,DRAM5](this, Seq(d0, d1, d2, d3, d4)))
-  @api def dealloc(): Void = stage(DRAMDealloc[A,DRAM5](this))
+  @api def alloc(d0: I32, d1: I32, d2: I32, d3: I32, d4: I32): Void = stage(DRAMAlloc(this, Seq(d0, d1, d2, d3, d4)))
 
   /** Creates a dense, burst transfer from the SRAM5 `data` to this region of main memory. */
   @api def store(data: SRAM5[A]): Void = {
