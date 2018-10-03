@@ -6,7 +6,9 @@ import forge.tags._
 
 import spatial.lang._
 
-@op case class DRAMNew[A:Bits,C[T]]()(implicit tp: Type[C[A]]) extends MemAlloc[A,C] {
+@op case class DRAMStaticNew[A:Bits,C[T]](dims: Seq[I32], zero: A)(implicit tp: Type[C[A]]) extends MemAlloc[A,C]
+
+@op case class DRAMDynNew[A:Bits,C[T]]()(implicit tp: Type[C[A]]) extends MemAlloc[A,C] {
   def dims = Nil
 }
 

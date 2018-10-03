@@ -14,19 +14,18 @@ trait ChiselGenDRAM extends ChiselGenCommon {
   var requesters = scala.collection.mutable.HashMap[Sym[_], Int]()
 
   override protected def gen(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case DRAMNew() =>
-      if (inHw) {
-        val reqCount = lhs.consumers.collect {
-          case w@Op(_: DRAMAlloc[_,_] | _: DRAMDealloc[_,_]) => w
-        }.size
-        emitGlobalModule(src"""val $lhs = Module(new DRAMAllocator($reqCount))""")
-        val id = accelDrams.size
-        emitt(src"io.heap.req($id) := $lhs.io.heapReq")
-        emitt(src"$lhs.io.heapResp := io.heap.resp($id)")
-        accelDrams += (lhs -> id)
-      } else {
-        hostDrams += (lhs -> hostDrams.size)
-      }
+    case DRAMStaticNew(_,_) =>
+      hostDrams += (lhs -> hostDrams.size)
+
+    case DRAMDynNew() =>
+      val reqCount = lhs.consumers.collect {
+        case w@Op(_: DRAMAlloc[_,_] | _: DRAMDealloc[_,_]) => w
+      }.size
+      emitGlobalModule(src"""val $lhs = Module(new DRAMAllocator($reqCount))""")
+      val id = accelDrams.size
+      emitt(src"io.heap.req($id) := $lhs.io.heapReq")
+      emitt(src"$lhs.io.heapResp := io.heap.resp($id)")
+      accelDrams += (lhs -> id)
 
     case DRAMAlloc(dram, dims) =>
       if (accelDrams.contains(dram)) {

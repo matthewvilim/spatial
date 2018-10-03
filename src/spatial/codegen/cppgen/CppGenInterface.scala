@@ -32,12 +32,11 @@ trait CppGenInterface extends CppGenCommon {
       emit(src"${lhs.tp} $lhs = $reg;")
     case RegWrite(reg,v,en) => 
       emit(src"// $lhs $reg $v $en reg write")
-    case DRAMNew() =>
-      drams += (lhs -> drams.size)
-    case DRAMAlloc(dram, dims) =>
-      emit(src"""uint64_t ${dram} = c1->malloc(sizeof(${dram.tp.typeArgs.head}) * ${dims.map(quote).mkString("*")});""")
-      emit(src"c1->setArg(${argHandle(dram)}_ptr, $dram, false);")
-      emit(src"""printf("Allocate mem of size ${dims.map(quote).mkString("*")} at %p\n", (void*)${dram});""")
+    case DRAMStaticNew(dims, _) =>
+      drams += (lhs -> drams.toList.length)
+      emit(src"""uint64_t ${lhs} = c1->malloc(sizeof(${lhs.tp.typeArgs.head}) * ${dims.map(quote).mkString("*")});""")
+      emit(src"c1->setArg(${argHandle(lhs)}_ptr, $lhs, false);")
+      emit(src"""printf("Allocate mem of size ${dims.map(quote).mkString("*")} at %p\n", (void*)${lhs});""")
 
     case SetReg(reg, v) =>
       reg.tp.typeArgs.head match {
