@@ -28,33 +28,39 @@ trait ChiselGenDRAM extends ChiselGenCommon {
       accelDrams += (lhs -> id)
 
     case DRAMAlloc(dram, dims) =>
-      if (accelDrams.contains(dram)) {
-        val id = requesters.size
-        val parent = lhs.parent
-        val invEnable = src"""${DL(src"${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}", lhs.fullDelay, true)}"""
-        emitt(src"${dram}.io.appReq($id).valid := $invEnable")
-        emitt(src"${dram}.io.appReq($id).bits.allocDealloc := true.B")
-        emitt(src"${dram}.io.appReq($id).bits.sizeAddr := ${dims}.r")
-        requesters += (lhs -> id)
+      dram match {
+        case _@Op(DRAMDynNew()) =>
+          val id = requesters.size
+          val parent = lhs.parent
+          val invEnable = src"""${DL(src"${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}", lhs.fullDelay, true)}"""
+          emitt(src"${dram}.io.appReq($id).valid := $invEnable")
+          emitt(src"${dram}.io.appReq($id).bits.allocDealloc := true.B")
+          emitt(src"${dram}.io.appReq($id).bits.sizeAddr := ${dims}.r")
+          requesters += (lhs -> id)
+        case _ =>
       }
 
     case DRAMDealloc(dram) =>
-      if (accelDrams.contains(dram)) {
-        val id = requesters.size
-        val parent = lhs.parent
-        val invEnable = src"""${DL(src"${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}", lhs.fullDelay, true)}"""
-        emitt(src"${dram}.io.appReq($id).valid := $invEnable")
-        emitt(src"${dram}.io.appReq($id).bits.allocDealloc := false.B")
-        requesters += (lhs -> id)
+      dram match {
+        case _@Op(DRAMDynNew()) =>
+          val id = requesters.size
+          val parent = lhs.parent
+          val invEnable = src"""${DL(src"${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}", lhs.fullDelay, true)}"""
+          emitt(src"${dram}.io.appReq($id).valid := $invEnable")
+          emitt(src"${dram}.io.appReq($id).bits.allocDealloc := false.B")
+          requesters += (lhs -> id)
+        case _ =>
       }
 
     case DRAMAddress(dram) =>
-      if (accelDrams.contains(dram)) {
-        emit(src"val $lhs = ${dram}.io.addr")
-      } else {
-        val id = argHandle(dram)
-        emitGlobalWireMap(src"$lhs", src"Wire(${lhs.tp})")
-        emit(src"""$lhs.r := io.argIns(api.${id}_ptr)""")
+      dram match {
+        case _@Op(DRAMDynNew()) =>
+          emit(src"val $lhs = ${dram}.io.addr")
+        case _@Op(DRAMStaticNew(_,_)) =>
+          val id = argHandle(dram)
+          emitGlobalWireMap(src"$lhs", src"Wire(${lhs.tp})")
+          emit(src"""$lhs.r := io.argIns(api.${id}_ptr)""")
+        case _ =>
       }
 
     case _ => super.gen(lhs, rhs)

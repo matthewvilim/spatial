@@ -59,7 +59,7 @@ trait ChiselGenInterface extends ChiselGenCommon {
     case RegRead(reg)  if reg.isArgOut =>
       argOutLoopbacks.getOrElseUpdate(argOuts(reg), argOutLoopbacks.toList.length)
       emitGlobalWireMap(src"""${lhs}""",src"Wire(${reg.tp.typeArgs.head})")
-      emitt(src"""${lhs}.r := io.argOutLoopbacks(${argOuts(reg)})""")
+      emitt(src"""${lhs}.r := io.argOutLoopbacks(${argOutLoopbacks(reg)})""")
 
 
     case RegWrite(reg, v, en) if reg.isHostIO =>
