@@ -6,7 +6,7 @@ import fringe._
 import fringe.templates.axi4._
 import fringe.templates.counters.{FringeCounter, UpDownCtr}
 import fringe.templates.memory.{FringeFF, SRFF}
-import fringe.templates.memory.{FIFOArbiter, FIFOWidthConvert, FIFOCore, FIFOOpcode, FIFOCounter}
+//import fringe.templates.memory.{FIFOArbiter, FIFOWidthConvert, FIFO, FIFOCounter}
 import fringe.utils.{log2Up, vecWidthConvert}
 import fringe.utils.{MuxN, risingEdge}
 
@@ -46,7 +46,7 @@ class MAGCore(
   val maxBurstsPerCmd = 256
   val maxBytesPerCmd = maxBurstsPerCmd * burstSizeBytes
 
-  val scatterGatherD = d
+  val sgDepth = 16
 
   val numStreams = loadStreamInfo.size + storeStreamInfo.size
   val streamTagWidth = log2Up(numStreams)
@@ -126,14 +126,10 @@ class MAGCore(
   val sizeWidth = io.app.loads(0).cmd.bits.sizeWidth
 
   val cmd = new Command(addrWidth, sizeWidth, 0)
-  val cmdArbiter = Module(new FIFOArbiter(cmd, d, 1, numStreams))
-  val cmdFifos = List.fill(numStreams) { Module(new FIFOCore(cmd, d, 1)) }
+  val cmdArbiter = Module(new FIFOArbiter(cmd, d, numStreams))
+  val cmdFifos = List.fill(numStreams) { Module(new FIFO(cmd, d)) }
   cmdArbiter.io.fifo.zip(cmdFifos).foreach { case (io, f) => io <> f.io }
 
-  val cmdFifoConfig = Wire(FIFOOpcode(d, 1))
-  cmdFifoConfig.chainRead := true.B
-  cmdFifoConfig.chainWrite := true.B
-  cmdArbiter.io.config := cmdFifoConfig
   cmdArbiter.io.forceTag.valid := false.B
 
   connectDbgSig(debugFF(chisel3.util.Cat(0x7F.U(32.W), io.app.loads.head.cmd.bits.addr(31,0)), io.app.loads.head.cmd.valid ).io.out, "[ACCEL] Last load addr enqueued")  
@@ -145,12 +141,12 @@ class MAGCore(
     // enq(0).isWr := cmd.bits.isWr
     // enq(0).isSparse := cmd.bits.isSparse
     // enq(0).size := cmd.bits.size
-    enq(0) := cmd.bits 
+    enq := cmd.bits 
   }
   cmdArbiter.io.enqVld.zip(cmds) foreach {case (enqVld, cmd) => enqVld := cmd.valid }
   cmdArbiter.io.full.zip(cmds) foreach { case (full, cmd) => cmd.ready := ~full }
 
-  val cmdHead = cmdArbiter.io.deq(0)
+  val cmdHead = cmdArbiter.io.deq
 
   val cmdAddr = Wire(new BurstAddr(addrWidth, w, burstSizeBytes))
   cmdAddr.bits := cmdHead.addr + sizeCounter.io.out
@@ -279,7 +275,7 @@ class MAGCore(
 
   val gatherBuffers = sparseLoads.map { case (s, i) =>
     val j = loadStreamId(i)
-    val m = Module(new GatherBuffer(s.w, scatterGatherD, s.v, burstSizeBytes, addrWidth, cmdHead, io.dram.rresp.bits))
+    val m = Module(new GatherBuffer(s.w, s.v, sgDepth, burstSizeBytes, addrWidth, cmdHead, io.dram.rresp.bits))
     m.io.rresp.valid := io.dram.rresp.valid & (rrespTag.streamId === i.U)
     m.io.rresp.bits := io.dram.rresp.bits
     m.io.cmd.valid := cmdRead & (cmdArbiter.io.tag === i.U) & dramReady
@@ -291,14 +287,14 @@ class MAGCore(
     isSparseMux.io.ins(j) := true.B
 
     rrespReadyMux.io.ins(i) := true.B
-    cmdDeqValidMux.io.ins(i) := cmdRead & !m.io.fifo.full & dramReady
-    dramCmdMux.io.ins(i).valid := cmdRead & !m.io.fifo.full & !m.io.hit
+    cmdDeqValidMux.io.ins(i) := cmdRead & m.io.in(0).ready & dramReady
+    dramCmdMux.io.ins(i).valid := cmdRead & m.io.in(0).ready & !m.io.hit
     dramCmdMux.io.ins(i).bits.tag.uid := cmdAddr.burstTag
 
     val stream = io.app.loads(i)
-    stream.rdata.bits := m.io.fifo.deq
-    stream.rdata.valid := m.io.complete
-    m.io.fifo.deqVld := stream.rdata.ready
+    stream.rdata.bits := m.io.out.bits
+    stream.rdata.valid := m.io.out.valid
+    m.io.out.ready := stream.rdata.ready
     m
   }
 
@@ -353,7 +349,7 @@ class MAGCore(
   val scatterBuffers = sparseStores.map { case (s, i) =>
     val j = storeStreamId(i)
 
-    val m = Module(new ScatterBuffer(s.w, scatterGatherD, s.v, burstSizeBytes, addrWidth, sizeWidth, io.dram.rresp.bits))
+    val m = Module(new ScatterBuffer(s.w, sgDepth, s.v, burstSizeBytes, addrWidth, sizeWidth, io.dram.rresp.bits))
     val wdata = Module(new FIFOCore(UInt(s.w.W), d, s.v))
     val stream = io.app.stores(i)
 
@@ -365,8 +361,8 @@ class MAGCore(
     isSparseMux.io.ins(j) := true.B
 
     val deqCmd = skipRead | (issueRead & dramReady)
-    wdata.io.config.chainRead := true.B
-    wdata.io.config.chainWrite := true.B
+    wdata.io.config.chainRead := false.B
+    wdata.io.config.chainWrite := false.B
     wdata.io.enqVld := stream.wdata.valid
     wdata.io.enq := stream.wdata.bits
     wdata.io.deqVld := deqCmd

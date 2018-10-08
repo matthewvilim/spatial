@@ -126,7 +126,6 @@ trait ChiselGenInterface extends ChiselGenCommon {
     case FringeSparseLoad(dram,cmdStream,dataStream) =>
       appPropertyStats += HasGather
       val par = dataStream.readers.head match { case Op(e@StreamInBankedRead(strm, ens)) => ens.length }
-      assert(par == 1, s"Unsupported par '$par' for sparse loads! Must be 1 currently")
 
       val id = loadsList.length
       // loadParMapping = loadParMapping :+ s"""StreamParInfo(if (FringeGlobals.target == "zcu") 32 else ${bitWidth(dram.tp.typeArgs.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, true)"""

@@ -1,78 +1,66 @@
 package fringe.templates.mag
 
 import chisel3._
-import chisel3.util.Valid
+import chisel3.util._
 import fringe._
-import fringe.templates.memory.{FIFOCore, FIFOOpcode, FIFOBaseIO}
 import fringe.utils.{SwitchParams, CrossbarConfig, CrossbarCore}
 import fringe.utils.vecWidthConvert
 
 class GatherBuffer(
   val streamW: Int,
-  val d: Int,
   val streamV: Int,
+  val depth: Int,
   val burstSize: Int,
   val addrWidth: Int,
   val loadCmd: Command,
   val readResp: DRAMReadResponse
 ) extends Module {
 
-  class MetaData extends Bundle {
-    val valid = Bool()
-    val addr = new BurstAddr(addrWidth, streamW, burstSize)
-
-    override def cloneType(): this.type = new MetaData().asInstanceOf[this.type]
-  }
   class GatherData extends Bundle {
     val data = UInt(streamW.W)
-    val meta = new MetaData
+    val meta = new Bundle {
+      val valid = Bool()
+      val addr = new BurstAddr(addrWidth, streamW, burstSize)
+    }
 
     override def cloneType(): this.type = new GatherData().asInstanceOf[this.type]
   }
 
-  class GatherBufferIO extends Bundle {
-    val fifo = new FIFOBaseIO(UInt(streamW.W), d, streamV)
+  val io = IO(new Bundle {
+    val in = Vec(streamV, Flipped(Decoupled(UInt(streamW.W))))
+    val out = Decoupled(Vec(streamV, UInt(streamW.W)))
     val rresp = Input(Valid(readResp))
     val cmd = Input(Valid(loadCmd))
     val hit = Output(Bool())
-    val complete = Output(Bool())
-  }
+  })
   
-  val io = IO(new GatherBufferIO)
-  
-  val f = Module(new FIFOCore(new GatherData, d, streamV, true))
-  val config = Wire(FIFOOpcode(d, streamV))
-  config.chainRead := true.B
-  config.chainWrite := true.B
-  f.io.config := config
+  val fifos = List.fill(streamV) { Module(new FIFO(new GatherData, depth, true)) }
 
-  val b = f.io.banks match {
-    case Some(b) => b
-    case None => throw new Exception
-  }
+  val banks = fifos.map { _.io.banks }
 
   val cmdAddr = Wire(new BurstAddr(addrWidth, streamW, burstSize))
   cmdAddr.bits := io.cmd.bits.addr
 
-  io.hit := b.map{_.map{ i =>
-    i.valid & (cmdAddr.burstTag === i.rdata.meta.addr.burstTag) & !i.rdata.meta.valid
+  io.hit := banks.map{ _.map{ i =>
+    val meta = i.rdata.bits.meta
+    i.rdata.valid & (cmdAddr.burstTag === meta.addr.burstTag) & !meta.valid
   }.reduce{_|_}}.reduce{_|_} & io.cmd.valid
 
   val data = Wire(new GatherData)
   data.meta.valid := false.B
   data.meta.addr.bits := io.cmd.bits.addr
-  f.io.enq(0) := data
-  f.io.enqVld := io.cmd.valid
+  fifos(0).io.in.bits := data
+  fifos(0).io.in.valid := io.cmd.valid
   
-  val crossbars = List.tabulate(f.bankSize) { i => 
+  val crossbars = List.tabulate(depth) { i => 
     val rrespVec = vecWidthConvert(io.rresp.bits.rdata, streamW)
     val switch = SwitchParams(rrespVec.length, streamV)
     val config = Wire(CrossbarConfig(switch))
 
-    val valid = b(i).map{ _.valid }
-    val rdata = b(i).map{ _.rdata }
-    val wdata = b(i).map{ _.wdata }
-    val wen = b(i).map{ _.wen }
+    val valid = banks.map { _(i).rdata.valid }
+    val rdata = banks.map { _(i).rdata.bits }
+    val wen = banks.map { _(i).wdata.valid }
+    val wdata = banks.map{ _(i).wdata.bits }
     val respHits = rdata.map { _.meta }.zip(valid).map { case (m, v) =>
       v & io.rresp.valid & (m.addr.burstTag === io.rresp.bits.tag.uid) & !m.valid
     }
@@ -86,19 +74,16 @@ class GatherBuffer(
     core.io.ins := rrespVec
     wdata.zip(core.io.outs).foreach { case (w, o) => w.data := o }
     wdata.zip(rdata).foreach{ case (w, r) =>
-      val m = Wire(new MetaData)
-      m.valid := true.B
-      m.addr := r.meta.addr
-      w.meta := m
+      w.meta.valid := true.B
+      w.meta.addr := r.meta.addr
     }
     core.io.config := config
     core
   }
 
-  io.fifo.deq := f.io.deq.map { _.data }
-  io.fifo.full := f.io.full
-  io.complete := f.io.deq(0).meta.valid & !f.io.empty
-  io.fifo.empty := f.io.empty
+  io.in.zip(fifos).foreach { case (a, b) => a.ready := b.io.in.ready }
+  io.out.valid := fifos.map { case a => a.io.out.valid & a.io.out.bits.meta.valid }.reduce { _&_ }
+  io.out.bits := Vec(fifos.map { _.io.out.bits.data })
   
-  f.io.deqVld := io.fifo.deqVld & io.complete
+  fifos.foreach { _.io.out.ready := io.out.valid & io.out.ready }
 }

@@ -3,7 +3,6 @@ package fringe.templates.mag
 import chisel3._
 import chisel3.util.{Valid,UIntToOH}
 import fringe._
-import fringe.templates.memory.{FIFOCore,FIFOBaseIO}
 import fringe.utils.vecWidthConvert
 
 class ScatterBuffer(
@@ -15,15 +14,12 @@ class ScatterBuffer(
   val sizeWidth: Int,
   val readResp: DRAMReadResponse
 ) extends Module {
-  class MetaData extends Bundle {
-    val valid = Bool()
-
-    override def cloneType(): this.type = new MetaData().asInstanceOf[this.type]
-  }
 
   class ScatterData extends Bundle {
     val data = UInt(streamW.W)
-    val meta = new MetaData
+    val meta = new Bundle {
+      val valid = Bool()
+    }
 
     override def cloneType(): this.type = new ScatterData().asInstanceOf[this.type]
   }
@@ -72,37 +68,29 @@ class ScatterBuffer(
   fData.io.enqVld := enqVld
   fCmd.io.enqVld := enqVld
   fCount.io.enqVld := enqVld
-  val (issueHits, respHits) = fCmd.io.banks match {
-    case Some(b) =>
-      b.zipWithIndex.map { case (bank, i) => 
-        val addr = Wire(new BurstAddr(addrWidth, streamW, burstSize))
-        addr.bits := bank(0).rdata.addr
-        val valid = bank(0).valid
-        val issueHit = valid & (addr.burstTag === cmdAddr.burstTag)
-        val respHit = valid & (addr.burstTag === io.rresp.bits.tag.uid) & io.rresp.valid
-        (issueHit, respHit)
-      }.unzip
-    case None => throw new Exception
-  }
+  val (issueHits, respHits) = fCmd.io.banks.zipWithIndex.map { case (bank, i) => 
+    val addr = Wire(new BurstAddr(addrWidth, streamW, burstSize))
+    addr.bits := bank(0).rdata.addr
+    val valid = bank(0).valid
+    val issueHit = valid & (addr.burstTag === cmdAddr.burstTag)
+    val respHit = valid & (addr.burstTag === io.rresp.bits.tag.uid) & io.rresp.valid
+    (issueHit, respHit)
+  }.unzip
   io.hit := issueHits.reduce { _|_ }
 
-  fData.io.banks match {
-    case Some(b) =>
-      b.zipWithIndex.foreach { case (bank, i) => 
-        val count = fCount.io.banks.get.apply(i).apply(0)
-        val wen = issueHits(i) & io.fifo.enqVld
-        count.wen := wen
-        count.wdata := count.rdata + 1.U
-        bank.zipWithIndex.foreach { case (d, j) =>
-          val writeWord = UIntToOH(cmdAddr.wordOffset)(j) & wen
-          val writeResp = respHits(i) & !d.rdata.meta.valid
-          d.wen := writeWord | writeResp
-          val rdata = vecWidthConvert(io.rresp.bits.rdata, streamW)
-          d.wdata.data := Mux(writeWord, io.fifo.enq(0).data(j), rdata(j))
-          d.wdata.meta.valid := true.B
-        }
-      }
-    case None => throw new Exception
+  fData.io.banks.zipWithIndex.foreach { case (bank, i) => 
+    val count = fCount.io.banks.apply(i).apply(0)
+    val wen = issueHits(i) & io.fifo.enqVld
+    count.wen := wen
+    count.wdata := count.rdata + 1.U
+    bank.zipWithIndex.foreach { case (d, j) =>
+      val writeWord = UIntToOH(cmdAddr.wordOffset)(j) & wen
+      val writeResp = respHits(i) & !d.rdata.meta.valid
+      d.wen := writeWord | writeResp
+      val rdata = vecWidthConvert(io.rresp.bits.rdata, streamW)
+      d.wdata.data := Mux(writeWord, io.fifo.enq(0).data(j), rdata(j))
+      d.wdata.meta.valid := true.B
+    }
   }
 
   io.fifo.deq(0).data := fData.io.deq.map { _.data }

@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util._
 import fringe._
 import fringe.utils._
-
+import fringe.templates.mag._
 
 class UpDownCounter(val w: Int) extends Module {
   val io = IO(new Bundle {
