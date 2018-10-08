@@ -355,7 +355,7 @@ class MAGCore(
 
     val write = cmdWrite & (cmdArbiter.io.tag === j.U)
     val issueWrite = m.io.complete & (cmdArbiter.io.tag === j.U)
-    val issueRead = !m.io.complete & write & !m.io.fifo.full & !wdata.io.empty & !m.io.hit
+    val issueRead = !m.io.complete & write & m.io.fifo.in.ready & !wdata.io.empty & !m.io.hit
     val skipRead = write & m.io.hit & !wdata.io.empty
 
     isSparseMux.io.ins(j) := true.B
@@ -372,30 +372,30 @@ class MAGCore(
 
     val dramCmd = dramCmdMux.io.ins(j)
     val addr = Wire(new BurstAddr(addrWidth, s.w, burstSizeBytes))
-    addr.bits := Mux(issueRead, cmdHead.addr, m.io.fifo.deq(0).cmd.addr)
+    addr.bits := Mux(issueRead, cmdHead.addr, m.io.fifo.out.bits.cmd.addr)
     dramCmd.bits.addr := addr.burstAddr
     dramCmd.bits.rawAddr := addr.bits
-    dramCmd.bits.tag.uid := Mux(issueRead, addr.burstTag, m.io.fifo.deq(0).count)
+    dramCmd.bits.tag.uid := Mux(issueRead, addr.burstTag, m.io.fifo.out.bits.count)
     dramCmd.bits.isWr := issueWrite
     val size = Wire(new BurstAddr(cmdHead.size.getWidth, s.w, burstSizeBytes))
-    size.bits := Mux(issueRead, cmdHead.size, m.io.fifo.deq(0).cmd.size)
+    size.bits := Mux(issueRead, cmdHead.size, m.io.fifo.out.bits.cmd.size)
     dramCmd.bits.size := size.burstTag + (size.burstOffset != 0.U)
     dramCmd.valid := issueRead | (issueWrite & wdataValid & !dramReadySeen)
 
     scatterLoadIssueMux.io.ins(j) := dramCmd.valid & deqCmd & !cmdArbiter.io.empty
     scatterLoadSkipMux.io.ins(j)  := !dramCmd.valid & deqCmd & !cmdArbiter.io.empty
-    scatterStoreIssueMux.io.ins(j) := m.io.complete & m.io.fifo.deqVld
+    scatterStoreIssueMux.io.ins(j) := m.io.complete & m.io.fifo.out.ready
     scatterStoreSkipMux.io.ins(j) := deqCmd & !cmdArbiter.io.empty
 
     m.io.rresp.valid := io.dram.rresp.valid & (rrespTag.streamId === j.U)
     m.io.rresp.bits := io.dram.rresp.bits
-    m.io.fifo.enqVld := deqCmd
-    m.io.fifo.enq(0).data.foreach { _ := wdata.io.deq(0) }
-    m.io.fifo.enq(0).cmd := cmdHead
-    m.io.fifo.deqVld := /*~cmdCooldown.io.out &*/ burstCounter.io.done
+    m.io.fifo.in.valid := deqCmd
+    m.io.fifo.in.bits.data.foreach { _ := wdata.io.deq(0) }
+    m.io.fifo.in.bits.cmd := cmdHead
+    m.io.fifo.out.ready := burstCounter.io.done
 
     wdataMux.io.ins(i).valid := issueWrite /*& ~cmdCooldown.io.out & ~burstCounterDoneLatch.io.out */
-    wdataMux.io.ins(i).bits.wdata := vecWidthConvert(m.io.fifo.deq(0).data, w)
+    wdataMux.io.ins(i).bits.wdata := vecWidthConvert(m.io.fifo.out.bits.data, w)
     wdataMux.io.ins(i).bits.wstrb.zipWithIndex.foreach{case (st, i) => st := true.B}
 
     val wrespFIFO = Module(new FIFOCore(UInt(32.W), d, 1))
@@ -423,7 +423,7 @@ class MAGCore(
   // force command arbiter to service scatter buffers when data is waiting to be written back to memory
   sparseStores.headOption match {
     case Some((s, i)) =>
-      val scatterReadys = scatterBuffers.map{!_.io.fifo.empty}
+      val scatterReadys = scatterBuffers.map{ _.io.fifo.out.valid }
       cmdArbiter.io.forceTag.valid := scatterReadys.reduce {_|_}
       cmdArbiter.io.forceTag.bits := PriorityEncoder(scatterReadys) + storeStreamId(i).U
     case None =>

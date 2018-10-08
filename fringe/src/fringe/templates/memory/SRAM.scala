@@ -76,16 +76,20 @@ abstract class GenericRAM[T<:Data](val t: T, val d: Int) extends Module {
 }
 
 class FFRAM[T<:Data](override val t: T, override val d: Int) extends GenericRAM(t, d) {
-  class FFRAMIO[T<:Data](t: T, d: Int) extends GenericRAMIO(t, d) {
-    val banks = Vec(d, new Bundle {
+  class FFRAMIO[T<:Data] extends GenericRAMIO(t, d) {
+    class Bank[T<:Data] extends Bundle {
       val wdata = Flipped(Valid(t))
       val rdata = Output(t)
-    })
 
-    override def cloneType(): this.type = new FFRAMIO(t, d).asInstanceOf[this.type]
+      override def cloneType(): this.type = new Bank().asInstanceOf[this.type]
+    }
+
+    val banks = Vec(d, new Bank)
+
+    override def cloneType(): this.type = new FFRAMIO().asInstanceOf[this.type]
   }
 
-  override val io = IO(new FFRAMIO(t, d))
+  override val io = IO(new FFRAMIO)
 
   val regs = List.tabulate(d) { i =>
     val r = RegInit((0.U).asTypeOf(t))

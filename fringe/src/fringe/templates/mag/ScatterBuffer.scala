@@ -14,6 +14,7 @@ class ScatterBuffer(
   val sizeWidth: Int,
   val readResp: DRAMReadResponse
 ) extends Module {
+  val v = readResp.rdata.getWidth / streamW
 
   class ScatterData extends Bundle {
     val data = UInt(streamW.W)
@@ -25,17 +26,10 @@ class ScatterBuffer(
   }
 
   val countWidth = 16
-  val v = readResp.rdata.getWidth / streamW
 
-  val fData = Module(new FIFOCore(new ScatterData, d, v, true))
-  fData.io.config.chainRead := false.B
-  fData.io.config.chainWrite := false.B
-  val fCmd = Module(new FIFOCore(new Command(addrWidth, sizeWidth, 0), fData.bankSize, 1, true))
-  fCmd.io.config.chainRead := false.B
-  fCmd.io.config.chainWrite := false.B
-  val fCount = Module(new FIFOCore(UInt(countWidth.W), fData.bankSize, 1, true))
-  fCount.io.config.chainRead := false.B
-  fCount.io.config.chainWrite := false.B
+  val dataFIFO = List.fill(v) { Module(new FIFO(new ScatterData, d, true)) }
+  val countFIFO = Module(new FIFO(UInt(countWidth.W), d, true))
+  val cmdFIFO = Module(new FIFO(new Command(addrWidth, sizeWidth, 0), d, true))
 
   class ScatterBufferIO extends Bundle {
     class WData extends Bundle {
@@ -46,7 +40,7 @@ class ScatterBuffer(
       override def cloneType(): this.type = new WData().asInstanceOf[this.type]
     }
 
-    val fifo = new FIFOBaseIO(new WData, fData.bankSize, 1)
+    val fifo = new FIFOIO(new WData, d)
     val rresp = Input(Valid(readResp))
     val hit = Output(Bool())
     val complete = Output(Bool())
@@ -54,21 +48,22 @@ class ScatterBuffer(
   
   val io = IO(new ScatterBufferIO)
   
+  /*
   val cmdAddr = Wire(new BurstAddr(addrWidth, streamW, burstSize))
   cmdAddr.bits := io.fifo.enq(0).cmd.addr
 
-  fData.io.enq.zipWithIndex.foreach { case (e, i) =>
+  dataFIFO.io.enq.zipWithIndex.foreach { case (e, i) =>
     e.meta.valid := (cmdAddr.wordOffset === i.U)
     e.data := io.fifo.enq(0).data(i)
   }
-  fCmd.io.enq(0) := io.fifo.enq(0).cmd
-  fCount.io.enq(0) := 1.U
+  cmdFIFO.io.enq(0) := io.fifo.enq(0).cmd
+  countFIFO.io.enq(0) := 1.U
 
   val enqVld = io.fifo.enqVld & ~io.hit
-  fData.io.enqVld := enqVld
-  fCmd.io.enqVld := enqVld
-  fCount.io.enqVld := enqVld
-  val (issueHits, respHits) = fCmd.io.banks.zipWithIndex.map { case (bank, i) => 
+  dataFIFO.io.enqVld := enqVld
+  cmdFIFO.io.enqVld := enqVld
+  countFIFO.io.enqVld := enqVld
+  val (issueHits, respHits) = cmdFIFO.io.banks.zipWithIndex.map { case (bank, i) => 
     val addr = Wire(new BurstAddr(addrWidth, streamW, burstSize))
     addr.bits := bank(0).rdata.addr
     val valid = bank(0).valid
@@ -78,8 +73,8 @@ class ScatterBuffer(
   }.unzip
   io.hit := issueHits.reduce { _|_ }
 
-  fData.io.banks.zipWithIndex.foreach { case (bank, i) => 
-    val count = fCount.io.banks.apply(i).apply(0)
+  dataFIFO.io.banks.zipWithIndex.foreach { case (bank, i) => 
+    val count = countFIFO.io.banks.apply(i).apply(0)
     val wen = issueHits(i) & io.fifo.enqVld
     count.wen := wen
     count.wdata := count.rdata + 1.U
@@ -93,16 +88,17 @@ class ScatterBuffer(
     }
   }
 
-  io.fifo.deq(0).data := fData.io.deq.map { _.data }
-  io.fifo.deq(0).cmd := fCmd.io.deq(0)
-  io.fifo.deq(0).count := fCount.io.deq(0)
-  io.fifo.full := fData.io.full
-  io.complete := fData.io.deq.map { _.meta.valid }.reduce { _&_ } & !fData.io.empty
-  io.fifo.empty := fData.io.empty
+  io.fifo.deq(0).data := dataFIFO.io.deq.map { _.data }
+  io.fifo.deq(0).cmd := cmdFIFO.io.deq(0)
+  io.fifo.deq(0).count := countFIFO.io.deq(0)
+  io.fifo.full := dataFIFO.io.full
+  io.complete := dataFIFO.io.deq.map { _.meta.valid }.reduce { _&_ } & !dataFIFO.io.empty
+  io.fifo.empty := dataFIFO.io.empty
   
 
   val deqVld = io.fifo.deqVld & io.complete
-  fData.io.deqVld := deqVld
-  fCmd.io.deqVld := deqVld
-  fCount.io.deqVld := deqVld
+  dataFIFO.io.deqVld := deqVld
+  cmdFIFO.io.deqVld := deqVld
+  countFIFO.io.deqVld := deqVld
+  */
 }

@@ -44,12 +44,10 @@ class FIFOBaseIO[T <: Data](t: T, depth: Int, v: Int) extends Bundle {
 }
 
 // TODO: move to new FIFO class; this one is only used in this file
-abstract class FIFOBase[T <: Data](val t: T, val d: Int, val v: Int, val banked: Boolean = false) extends Module {
+abstract class FIFOBase[T <: Data](val t: T, val d: Int, val v: Int) extends Module {
   val w = t.getWidth
   val addrWidth = log2Up(d/v)
   val bankSize = d/v
-  val bankCount = if (banked) bankSize else 1
-  val depth = if (banked) 1 else bankSize
 
   val io = IO(new FIFOBaseIO(t, bankSize, v))
 
@@ -101,9 +99,8 @@ class FIFOCounter(override val d: Int, override val v: Int) extends FIFOBase(UIn
 class FIFOCore[T<:Data](
     override val t: T,
     override val d: Int,
-    override val v: Int,
-    override val banked: Boolean=false)
-  extends FIFOBase(t, d, v, banked) {
+    override val v: Int)
+  extends FIFOBase(t, d, v) {
 
   // Create wptr (tail) counter chain
   val wptrConfig = Wire(CounterChainOpcode(log2Up(scala.math.max(bankSize,v)+1), 2, 0, 0))
@@ -160,72 +157,38 @@ class FIFOCore[T<:Data](
   val nextHeadBankAddr = rptr.io.next(0)
 
   // Backing SRAM
-  val mems = List.fill(bankCount) {
-    List.fill(v) {
-      if (w == 1 || banked || depth == 1) Module(new FFRAM(t, depth)) else {
-        val sram = Module(new SRAM(t, depth, "VIVADO_SELECT"))
-        sram.io.flow := true.B
-        sram
-      }
-    }
+  val mems = List.fill(v) {
+    val sram = Module(new SRAM(t, bankSize, "VIVADO_SELECT"))
+    sram.io.flow := true.B
+    sram
   }
 
-  val rdata = if (banked) {
-    val m = Module(new MuxN(Vec(v, t), bankCount))
-    m.io.ins := Vec(mems.map{banks => Vec(banks.map { _.io.rdata }) })
-    m.io.sel := headLocalAddr
-    m.io.out
-  } else {
-    mems(0).map(_.io.rdata)
-  }
+  val rdata = mems.map(_.io.rdata)
 
   val wdata = Vec(List.tabulate(v) { i => if (i == 0) io.enq(i) else Mux(io.config.chainWrite, io.enq(0), io.enq(i)) })
 
   mems.zipWithIndex.foreach { case (m, i) =>
-    m.zipWithIndex.foreach { case (bank, j) =>
-      if (banked) {
-        bank.io.raddr := 0.U
-        bank.io.waddr := 0.U
+    m.io.raddr := Mux(readEn, nextHeadLocalAddr, headLocalAddr)
+    m.io.waddr := tailLocalAddr
 
-        val enqWen = Mux(io.config.chainWrite, writeEn & tailBankAddr === j.U, writeEn) & tailLocalAddr === i.U
-        val deqWen = Mux(io.config.chainRead, readEn & headBankAddr === j.U, readEn) & headLocalAddr === i.U
-        val ff = Module(new FringeFF(Bool()))
-        ff.io.init := false.B
-        ff.io.enable := enqWen | deqWen
-        ff.io.in := enqWen
-        io.banks(i)(j).valid := ff.io.out
+    m.io.wdata := wdata(i)
+    m.io.wen := Mux(io.config.chainWrite, writeEn & tailBankAddr === i.U, writeEn)
 
-        bank.io.wdata := Mux(io.banks(i)(j).wen, io.banks(i)(j).wdata, wdata(j))
-        bank.io.wen := Mux(enqWen, true.B, io.banks(i)(j).wen)
-        io.banks(i)(j).rdata := bank.io.rdata
-      } else {
-        bank.io.raddr := Mux(readEn, nextHeadLocalAddr, headLocalAddr)
-        bank.io.waddr := tailLocalAddr
+    // Read data output
+    val deqData = i match {
+      case 0 =>
+        val rdata0Mux = Module(new MuxN(t, v))
+        val addrFF = Module(new FringeFF(UInt(log2Ceil(v).W)))
+        addrFF.io.in := Mux(readEn, nextHeadBankAddr, headBankAddr)
+        addrFF.io.enable := true.B
 
-        bank.io.wdata := wdata(j)
-        bank.io.wen := Mux(io.config.chainWrite, writeEn & tailBankAddr === j.U, writeEn)
-      }
-
-      i match {
-        case 0 =>
-          // Read data output
-          val deqData = j match {
-            case 0 =>
-              val rdata0Mux = Module(new MuxN(t, v))
-              val addrFF = Module(new FringeFF(UInt(log2Ceil(v).W)))
-              addrFF.io.in := Mux(readEn, nextHeadBankAddr, headBankAddr)
-              addrFF.io.enable := true.B
-
-              rdata0Mux.io.ins := rdata
-              rdata0Mux.io.sel := Mux(io.config.chainRead, addrFF.io.out, 0.U)
-              rdata0Mux.io.out
-            case _ =>
-              rdata(j)
-          }
-          io.deq(j) := deqData
-        case _ =>
-      }
+        rdata0Mux.io.ins := rdata
+        rdata0Mux.io.sel := Mux(io.config.chainRead, addrFF.io.out, 0.U)
+        rdata0Mux.io.out
+      case _ =>
+        rdata(i)
     }
+    io.deq(i) := deqData
   }
 }
 
