@@ -49,8 +49,7 @@ class FIFO[T <: Data](val t: T, val depth: Int, val banked: Boolean = false) ext
 
     m.io.banks.zip(io.banks).foreach { case (a, b) =>
       a.wdata := b.wdata
-      b.wdata.bits := a.wdata.bits
-			b.rdata.bits := a.rdata
+      b.rdata.bits := a.rdata
     }
 
 		List.tabulate(depth) { i =>
