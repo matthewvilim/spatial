@@ -6,7 +6,6 @@ import fringe._
 import fringe.templates.axi4._
 import fringe.templates.counters.{FringeCounter, UpDownCtr}
 import fringe.templates.memory.{FringeFF, SRFF}
-//import fringe.templates.memory.{FIFOArbiter, FIFOWidthConvert, FIFO, FIFOCounter}
 import fringe.utils.{log2Up, vecWidthConvert}
 import fringe.utils.{MuxN, risingEdge}
 
@@ -32,6 +31,8 @@ class MAGCore(
   val v: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
+  val gatherStreamInfo: List[StreamParInfo],
+  val scatterStreamInfo: List[StreamParInfo],
   val numOutstandingBursts: Int,
   val burstSizeBytes: Int,
   val axiParams: AXI4BundleParameters,
@@ -48,7 +49,15 @@ class MAGCore(
 
   val sgDepth = 16
 
-  val numStreams = loadStreamInfo.size + storeStreamInfo.size
+  val loadOrder = loadStreamInfo ++ gatherStreamInfo
+  val storeOrder = storeStreamInfo ++ scatterStreamInfo
+  val streamOrder = loadOrder ++ storeOrder
+  val numStreams = streamOrder.size
+
+  def loadID(s: StreamParInfo) = loadOrder.indexOf(s)
+  def storeID(s: StreamParInfo) = storeOrder.indexOf(s)
+  def streamID(s: StreamParInfo) = streamOrder.indexOf(s)
+
   val streamTagWidth = log2Up(numStreams)
 
   val external_w = globals.target.external_w
@@ -56,24 +65,14 @@ class MAGCore(
 
   assert(streamTagWidth <= (new DRAMCommandTag).streamId.getWidth)
 
-  val sparseLoads = loadStreamInfo.zipWithIndex.filter { case (s, i) => s.isSparse }
-  val denseLoads = loadStreamInfo.zipWithIndex.filterNot { case (s, i) => s.isSparse }
-  val sparseStores = storeStreamInfo.zipWithIndex.filter { case (s, i) => s.isSparse }
-  val denseStores = storeStreamInfo.zipWithIndex.filterNot { case (s, i) => s.isSparse }
-
-  def storeStreamIndex(id: UInt) = id - loadStreamInfo.size.U
-  def storeStreamId(index: Int) = index + loadStreamInfo.size
-  def loadStreamId(index: Int) = index
-
 
   val axiLiteParams = new AXI4BundleParameters(64, 512, 1)
 
   val io = IO(new Bundle {
     val enable = Input(Bool())
     val reset = Input(Bool())
-    val app = new AppStreams(loadStreamInfo, storeStreamInfo)
+    val app = new AppStreams(loadStreamInfo, storeStreamInfo, gatherStreamInfo, scatterStreamInfo)
     val dram = new DRAMStream(w, v)
-    val config = Input(new MAGOpcode())
     val debugSignals = Output(Vec(numDebugs, UInt(w.W)))
 
     // AXI Debuggers
@@ -125,7 +124,7 @@ class MAGCore(
   val addrWidth = io.app.loads(0).cmd.bits.addrWidth
   val sizeWidth = io.app.loads(0).cmd.bits.sizeWidth
 
-  val cmd = new Command(addrWidth, sizeWidth, 0)
+  val cmd = new AppCommandDense
   val cmdArbiter = Module(new FIFOArbiter(cmd, d, numStreams))
   val cmdFifos = List.fill(numStreams) { Module(new FIFO(cmd, d)) }
   cmdArbiter.io.fifo.zip(cmdFifos).foreach { case (io, f) => io <> f.io }
@@ -184,13 +183,13 @@ class MAGCore(
   sizeCounterDoneLatch.io.enable := Mux(isSparseMux.io.out, false.B, sizeCounter.io.done)
   sizeCounterDoneLatch.io.reset := burstCounterDoneLatch.io.out // | (io.dram.rresp.valid & io.dram.rresp.ready))  // Assumes burst counter will finish after sizeCounter, potential hazard
 
-  val rrespReadyMux = Module(new MuxN(Bool(), loadStreamInfo.size))
+  val rrespReadyMux = Module(new MuxN(Bool(), loadOrder.size))
   rrespReadyMux.io.sel := rrespTag.streamId
   io.dram.rresp.ready := rrespReadyMux.io.out
 
   val burstCounterMaxLatch = Module(new FringeFF(UInt(io.dram.cmd.bits.size.getWidth.W)))
-  val wdataMux = Module(new MuxN(Valid(io.dram.wdata.bits), storeStreamInfo.size))
-  wdataMux.io.sel := storeStreamIndex(cmdArbiter.io.tag)
+  val wdataMux = Module(new MuxN(Valid(io.dram.wdata.bits), storeOrder.size))
+  wdataMux.io.sel := cmdArbiter.io.tag - loadOrder.size.U
   wdataMux.io.ins.zipWithIndex.foreach { case (in,i) =>
     in.bits.wlast := in.valid & (burstCounter.io.out === Mux(burstCounterMaxLatch.io.enable, io.dram.cmd.bits.size - 1.U, burstCounterMaxLatch.io.out - 1.U))
   }
@@ -213,11 +212,11 @@ class MAGCore(
     size.bits := Mux(isSparseMux.io.out, cmdHead.size, Mux(sizeCounter.io.done, cmdHead.size - sizeCounter.io.out, maxBytesPerCmd.U))
     i.bits.size := size.burstTag + (size.burstOffset != 0.U)
     i.bits.isWr := cmdHead.isWr
-    if (id < loadStreamInfo.length && id == 0) {
+    if (id < loadOrder.length && id == 0) {
       connectDbgSig(debugFF(dramCmdMux.io.out.bits.tag.streamId, dramCmdMux.io.out.valid & !dramCmdMux.io.out.bits.isWr ).io.out, "[FRINGE] Last load streamId (tag) sent")
       connectDbgSig(debugFF(dramCmdMux.io.out.bits.addr, dramCmdMux.io.out.valid & !dramCmdMux.io.out.bits.isWr ).io.out, "[FRINGE] Last load addr sent")
       connectDbgSig(debugFF(dramCmdMux.io.out.bits.size, dramCmdMux.io.out.valid & !dramCmdMux.io.out.bits.isWr ).io.out, "[FRINGE] Last load size sent")
-    } else if (id == loadStreamInfo.length) {
+    } else if (id == loadOrder.length) {
       connectDbgSig(debugFF(cmdArbiter.io.tag, cmdWrite ).io.out, "[FRINGE] Last store streamId (tag) sent")
       connectDbgSig(debugFF(cmdHead.size, cmdWrite ).io.out, "[FRINGE] Last store size sent")
     }
@@ -241,7 +240,7 @@ class MAGCore(
   gatherLoadSkipMux.io.sel := cmdArbiter.io.tag
 
   val gatherLoadSkip = debugCounter(gatherLoadSkipMux.io.out)
-  if (sparseLoads.size > 0) {
+  if (gatherStreamInfo.size > 0) {
     connectDbgSig(gatherLoadIssue.io.out, "[FRINGE] Gather load issue")
     connectDbgSig(gatherLoadSkip.io.out, "[FRINGE] Gather load skip")
   }
@@ -266,32 +265,32 @@ class MAGCore(
   scatterStoreSkipMux.io.sel := cmdArbiter.io.tag
   val scatterStoreSkip = debugCounter(scatterStoreSkipMux.io.out)
 
-  if (sparseStores.size > 0) {
+  if (scatterStreamInfo.size > 0) {
     connectDbgSig(scatterLoadSkip.io.out, "[FRINGE] Scatter load skip")
     connectDbgSig(scatterStoreIssue.io.out, "[FRINGE] Scatter store issue")
     connectDbgSig(scatterLoadIssue.io.out, "[FRINGE] Scatter load issue")
     connectDbgSig(scatterStoreSkip.io.out, "[FRINGE] Scatter store skip")
   }
 
-  val gatherBuffers = sparseLoads.map { case (s, i) =>
-    val j = loadStreamId(i)
-    val m = Module(new GatherBuffer(s.w, s.v, sgDepth, burstSizeBytes, addrWidth, cmdHead, io.dram.rresp.bits))
-    m.io.rresp.valid := io.dram.rresp.valid & (rrespTag.streamId === i.U)
+  val gatherBuffers = gatherStreamInfo.zip(io.app.gathers).map { case (info, stream) =>
+    val streamid = streamID(info)
+    val loadid = loadID(info)
+    val m = Module(new GatherBuffer(info.w, info.v, sgDepth, burstSizeBytes, addrWidth, cmdHead, io.dram.rresp.bits))
+    m.io.rresp.valid := io.dram.rresp.valid & (rrespTag.streamId === streamid.U)
     m.io.rresp.bits := io.dram.rresp.bits
-    m.io.cmd.valid := cmdRead & (cmdArbiter.io.tag === i.U) & dramReady
+    m.io.cmd.valid := cmdRead & (cmdArbiter.io.tag === streamid.U) & dramReady
     m.io.cmd.bits := cmdHead
 
-    gatherLoadIssueMux.io.ins(i) := !cmdArbiter.io.empty & cmdDeqValidMux.io.ins(j) & dramCmdMux.io.ins(i).valid
-    gatherLoadSkipMux.io.ins(i) := !cmdArbiter.io.empty & cmdDeqValidMux.io.ins(j) & !dramCmdMux.io.ins(i).valid
+    gatherLoadIssueMux.io.ins(streamid) := !cmdArbiter.io.empty & cmdDeqValidMux.io.ins(streamid) & dramCmdMux.io.ins(streamid).valid
+    gatherLoadSkipMux.io.ins(streamid) := !cmdArbiter.io.empty & cmdDeqValidMux.io.ins(streamid) & !dramCmdMux.io.ins(streamid).valid
 
-    isSparseMux.io.ins(j) := true.B
+    isSparseMux.io.ins(streamid) := true.B
 
-    rrespReadyMux.io.ins(i) := true.B
-    cmdDeqValidMux.io.ins(i) := cmdRead & m.io.in(0).ready & dramReady
-    dramCmdMux.io.ins(i).valid := cmdRead & m.io.in(0).ready & !m.io.hit
-    dramCmdMux.io.ins(i).bits.tag.uid := cmdAddr.burstTag
+    rrespReadyMux.io.ins(loadid) := true.B
+    cmdDeqValidMux.io.ins(streamid) := cmdRead & m.io.in(0).ready & dramReady
+    dramCmdMux.io.ins(streamid).valid := cmdRead & m.io.in(0).ready & !m.io.hit
+    dramCmdMux.io.ins(streamid).bits.tag.uid := cmdAddr.burstTag
 
-    val stream = io.app.loads(i)
     stream.rdata.bits := m.io.out.bits
     stream.rdata.valid := m.io.out.valid
     m.io.out.ready := stream.rdata.ready
@@ -300,31 +299,31 @@ class MAGCore(
 
   // TODO: this currently assumes the memory controller hands back data in the order it was requested,
   // but according to the AXI spec the ARID field should be constant to enforce ordering?
-  val denseLoadBuffers = denseLoads.map { case (s, i) =>
-    val j = loadStreamId(i)
+  val denseLoadBuffers = loadStreamInfo.zip(io.app.loads).map { case (info, stream) =>
+    val streamid = streamID(info)
+    val loadid = loadID(info)
 
-    val m = Module(new FIFOWidthConvert(external_w, io.dram.rresp.bits.rdata.size, s.w, s.v, d))
+    val m = Module(new FIFOWidthConvert(external_w, io.dram.rresp.bits.rdata.size, info.w, info.v, d))
     m.io.enq := io.dram.rresp.bits.rdata
-    m.io.enqVld := io.dram.rresp.valid & (rrespTag.streamId === i.U)
+    m.io.enqVld := io.dram.rresp.valid & (rrespTag.streamId === streamid.U)
 
-    rrespReadyMux.io.ins(i) := ~m.io.full
-//    cmdDeqValidMux.io.ins(i) := dramReady
-    cmdDeqValidMux.io.ins(j) := sizeCounterDoneLatch.io.out
+    rrespReadyMux.io.ins(loadid) := ~m.io.full
+//    cmdDeqValidMux.io.ins(streamid) := dramReady
+    cmdDeqValidMux.io.ins(streamid) := sizeCounterDoneLatch.io.out
 
-    dramCmdMux.io.ins(j).valid := cmdRead
-    dramCmdMux.io.ins(j).bits.tag.uid := burstTagCounter.io.out
+    dramCmdMux.io.ins(streamid).valid := cmdRead
+    dramCmdMux.io.ins(streamid).bits.tag.uid := burstTagCounter.io.out
 
-    isSparseMux.io.ins(j) := false.B
+    isSparseMux.io.ins(streamid) := false.B
 
-    val stream = io.app.loads(i)
     stream.rdata.bits := m.io.deq
     stream.rdata.valid := ~m.io.empty
     m.io.deqVld := stream.rdata.ready
 
-    connectDbgSig(debugCounter(m.io.enqVld).io.out, s"[FRINGE DENSELD] rdataFifo $i # enqs")
-    connectDbgSig(debugCounter(!m.io.empty).io.out, s"[FRINGE DENSELD] rdataFifo $i # cycles ~empty (= data valid)")
-    connectDbgSig(debugCounter(stream.rdata.ready).io.out, s"[FRINGE DENSELD] load stream $i # cycles ready")
-    connectDbgSig(debugCounter(!m.io.empty && stream.rdata.ready).io.out, s"[FRINGE DENSELD] load stream $i # handshakes")
+    connectDbgSig(debugCounter(m.io.enqVld).io.out, s"[FRINGE DENSELD] rdataFifo $loadid # enqs")
+    connectDbgSig(debugCounter(!m.io.empty).io.out, s"[FRINGE DENSELD] rdataFifo $loadid # cycles ~empty (= data valid)")
+    connectDbgSig(debugCounter(stream.rdata.ready).io.out, s"[FRINGE DENSELD] load stream $loadid # cycles ready")
+    connectDbgSig(debugCounter(!m.io.empty && stream.rdata.ready).io.out, s"[FRINGE DENSELD] load stream $loadid # handshakes")
 
     connectDbgSig(debugCounter(m.io.empty & m.io.deqVld).io.out, s"[FRINGE DENSELD] number of bad elements (IF =!= 0, LOOK HERE FOR BUGS)")
 
@@ -346,19 +345,20 @@ class MAGCore(
   }
 
 
-  val scatterBuffers = sparseStores.map { case (s, i) =>
-    val j = storeStreamId(i)
+  val scatterBuffers = scatterStreamInfo.zipWithIndex.map { case (s, i) =>
+    val streamid = streamID(s)
+    val storeid = storeID(s)
 
     val m = Module(new ScatterBuffer(s.w, sgDepth, s.v, burstSizeBytes, addrWidth, sizeWidth, io.dram.rresp.bits))
     val wdata = Module(new FIFOCore(UInt(s.w.W), d, s.v))
-    val stream = io.app.stores(i)
+    val stream = io.app.scatters(i)
 
-    val write = cmdWrite & (cmdArbiter.io.tag === j.U)
-    val issueWrite = m.io.complete & (cmdArbiter.io.tag === j.U)
+    val write = cmdWrite & (cmdArbiter.io.tag === streamid.U)
+    val issueWrite = m.io.complete & (cmdArbiter.io.tag === streamid.U)
     val issueRead = !m.io.complete & write & m.io.fifo.in.ready & !wdata.io.empty & !m.io.hit
     val skipRead = write & m.io.hit & !wdata.io.empty
 
-    isSparseMux.io.ins(j) := true.B
+    isSparseMux.io.ins(streamid) := true.B
 
     val deqCmd = skipRead | (issueRead & dramReady)
     wdata.io.config.chainRead := false.B
@@ -368,9 +368,9 @@ class MAGCore(
     wdata.io.deqVld := deqCmd
     stream.wdata.ready := ~wdata.io.full
 
-    cmdDeqValidMux.io.ins(j) := deqCmd
+    cmdDeqValidMux.io.ins(streamid) := deqCmd
 
-    val dramCmd = dramCmdMux.io.ins(j)
+    val dramCmd = dramCmdMux.io.ins(streamid)
     val addr = Wire(new BurstAddr(addrWidth, s.w, burstSizeBytes))
     addr.bits := Mux(issueRead, cmdHead.addr, m.io.fifo.out.bits.cmd.addr)
     dramCmd.bits.addr := addr.burstAddr
@@ -382,26 +382,26 @@ class MAGCore(
     dramCmd.bits.size := size.burstTag + (size.burstOffset != 0.U)
     dramCmd.valid := issueRead | (issueWrite & wdataValid & !dramReadySeen)
 
-    scatterLoadIssueMux.io.ins(j) := dramCmd.valid & deqCmd & !cmdArbiter.io.empty
-    scatterLoadSkipMux.io.ins(j)  := !dramCmd.valid & deqCmd & !cmdArbiter.io.empty
-    scatterStoreIssueMux.io.ins(j) := m.io.complete & m.io.fifo.out.ready
-    scatterStoreSkipMux.io.ins(j) := deqCmd & !cmdArbiter.io.empty
+    scatterLoadIssueMux.io.ins(streamid) := dramCmd.valid & deqCmd & !cmdArbiter.io.empty
+    scatterLoadSkipMux.io.ins(streamid)  := !dramCmd.valid & deqCmd & !cmdArbiter.io.empty
+    scatterStoreIssueMux.io.ins(streamid) := m.io.complete & m.io.fifo.out.ready
+    scatterStoreSkipMux.io.ins(streamid) := deqCmd & !cmdArbiter.io.empty
 
-    m.io.rresp.valid := io.dram.rresp.valid & (rrespTag.streamId === j.U)
+    m.io.rresp.valid := io.dram.rresp.valid & (rrespTag.streamId === streamid.U)
     m.io.rresp.bits := io.dram.rresp.bits
     m.io.fifo.in.valid := deqCmd
     m.io.fifo.in.bits.data.foreach { _ := wdata.io.deq(0) }
     m.io.fifo.in.bits.cmd := cmdHead
     m.io.fifo.out.ready := burstCounter.io.done
 
-    wdataMux.io.ins(i).valid := issueWrite /*& ~cmdCooldown.io.out & ~burstCounterDoneLatch.io.out */
-    wdataMux.io.ins(i).bits.wdata := vecWidthConvert(m.io.fifo.out.bits.data, w)
-    wdataMux.io.ins(i).bits.wstrb.zipWithIndex.foreach{case (st, i) => st := true.B}
+    wdataMux.io.ins(storeid).valid := issueWrite /*& ~cmdCooldown.io.out & ~burstCounterDoneLatch.io.out */
+    wdataMux.io.ins(storeid).bits.wdata := vecWidthConvert(m.io.fifo.out.bits.data, w)
+    wdataMux.io.ins(storeid).bits.wstrb.zipWithIndex.foreach{case (st, i) => st := true.B}
 
     val wrespFIFO = Module(new FIFOCore(UInt(32.W), d, 1))
     wrespFIFO.io.enq(0) := io.dram.wresp.bits.tag.uid
-    wrespFIFO.io.enqVld := io.dram.wresp.valid & (wrespTag.streamId === j.U)
-    wrespReadyMux.io.ins(i) := ~wrespFIFO.io.full
+    wrespFIFO.io.enqVld := io.dram.wresp.valid & (wrespTag.streamId === streamid.U)
+    wrespReadyMux.io.ins(storeid) := ~wrespFIFO.io.full
 
     val count = Module(new UpDownCtr(32))
     count.io.max := ~(0.U(32.W))
@@ -421,41 +421,37 @@ class MAGCore(
     m
   }
   // force command arbiter to service scatter buffers when data is waiting to be written back to memory
-  sparseStores.headOption match {
-    case Some((s, i)) =>
+  scatterStreamInfo.headOption match {
+    case Some(s) =>
       val scatterReadys = scatterBuffers.map{ _.io.fifo.out.valid }
       cmdArbiter.io.forceTag.valid := scatterReadys.reduce {_|_}
-      cmdArbiter.io.forceTag.bits := PriorityEncoder(scatterReadys) + storeStreamId(i).U
+      cmdArbiter.io.forceTag.bits := PriorityEncoder(scatterReadys) + streamID(s).U
     case None =>
   }
 
-  val denseStoreBuffers = denseStores.map { case (s, i) =>
-    val j = storeStreamId(i)
+  val denseStoreBuffers = storeStreamInfo.zipWithIndex.map { case (s, i) =>
+    val streamid = streamID(s)
+    val storeid = storeID(s)
     val m = Module(new FIFOWidthConvert(s.w, s.v, external_w, external_v, d))
     val stream = io.app.stores(i)
 
-    // cmdDeqValidMux.io.ins(j) := burstCounter.io.done
-    cmdDeqValidMux.io.ins(j) := burstCounterDoneLatch.io.out & sizeCounterDoneLatch.io.out //& ~cmdCooldown.io.out
+    // cmdDeqValidMux.io.ins(streamid) := burstCounter.io.done
+    cmdDeqValidMux.io.ins(streamid) := burstCounterDoneLatch.io.out & sizeCounterDoneLatch.io.out //& ~cmdCooldown.io.out
 
-    dramCmdMux.io.ins(j).valid := cmdWrite & wdataValid & !dramReadySeen
-    dramCmdMux.io.ins(j).bits.tag.uid := burstTagCounter.io.out
+    dramCmdMux.io.ins(streamid).valid := cmdWrite & wdataValid & !dramReadySeen
+    dramCmdMux.io.ins(streamid).bits.tag.uid := burstTagCounter.io.out
 
-    isSparseMux.io.ins(j) := false.B
+    isSparseMux.io.ins(streamid) := false.B
 
     m.io.enqVld := stream.wdata.valid
     m.io.enq := stream.wdata.bits
     m.io.enqStrb := stream.wstrb.bits
-    m.io.deqVld := cmdWrite & !m.io.empty & io.dram.wdata.ready & (cmdArbiter.io.tag === j.U) & !cmdCooldown.io.out & !burstCounterDoneLatch.io.out
+    m.io.deqVld := cmdWrite & !m.io.empty & io.dram.wdata.ready & (cmdArbiter.io.tag === streamid.U) & !cmdCooldown.io.out & !burstCounterDoneLatch.io.out
 
-    wdataMux.io.ins(i).valid := cmdWrite & !m.io.empty & !cmdCooldown.io.out & !burstCounterDoneLatch.io.out
-    wdataMux.io.ins(i).bits.wdata := m.io.deq
-    wdataMux.io.ins(i).bits.wstrb.zipWithIndex.foreach{case (st, i) => st := m.io.deqStrb(i)}
+    wdataMux.io.ins(storeid).valid := cmdWrite & !m.io.empty & !cmdCooldown.io.out & !burstCounterDoneLatch.io.out
+    wdataMux.io.ins(storeid).bits.wdata := m.io.deq
+    wdataMux.io.ins(storeid).bits.wstrb.zipWithIndex.foreach{case (st, i) => st := m.io.deqStrb(i)}
     stream.wdata.ready := ~m.io.full
-
-    // connectDbgSig(debugCounter(m.io.enqVld).io.out, s"wdataFifo $i # enqs")
-    // connectDbgSig(debugCounter(~m.io.full).io.out, s"wdataFifo $i # cycles ~full (= ready)")
-    // connectDbgSig(debugCounter(stream.wdata.valid).io.out, s"store stream $i # cycles valid")
-    // connectDbgSig(debugCounter(~m.io.full && stream.wdata.valid).io.out, s"store stream $i # handshakes")
 
     val wrespSizeCounter = Module(new FringeCounter(sizeWidth))
     val wrespSizeCounterMaxLatch = Module(new FringeFF(UInt(sizeWidth.W)))
@@ -468,19 +464,19 @@ class MAGCore(
     wrespSizeCounter.io.saturate := false.B
     wrespSizeCounter.io.max := wrespSizeCounterMaxLatch.io.out
     wrespSizeCounter.io.stride := maxBytesPerCmd.U
-    wrespSizeCounter.io.enable := io.dram.wresp.valid & (wrespTag.streamId === j.U)
+    wrespSizeCounter.io.enable := io.dram.wresp.valid & (wrespTag.streamId === storeid.U)
 
     val wrespFIFO = Module(new FIFOCounter(d, 1))
     wrespFIFO.io.enq(0) := io.dram.wresp.valid
-    wrespFIFO.io.enqVld := wrespSizeCounter.io.done //io.dram.wresp.valid & (wrespTag.streamId === j.U)
-    wrespReadyMux.io.ins(i) := ~wrespFIFO.io.full
+    wrespFIFO.io.enqVld := wrespSizeCounter.io.done
+    wrespReadyMux.io.ins(storeid) := ~wrespFIFO.io.full
     stream.wresp.bits  := wrespFIFO.io.deq(0)
     stream.wresp.valid := ~wrespFIFO.io.empty
     wrespFIFO.io.deqVld := stream.wresp.ready
 
-    connectDbgSig(debugCounter(wrespFIFO.io.enqVld).io.out, s"[FRINGE DENSEST] wrespFifo $i enq")
-    connectDbgSig(debugCounter(!wrespFIFO.io.empty).io.out, s"[FRINGE DENSEST] wrespFifo $i ~empty (stream.wresp.valid)")
-    connectDbgSig(debugCounter(stream.wresp.ready).io.out, s"[FRINGE DENSEST] wrespFifo $i deq (stream.wresp.ready)")
+    connectDbgSig(debugCounter(wrespFIFO.io.enqVld).io.out, s"[FRINGE DENSEST] wrespFifo $storeid enq")
+    connectDbgSig(debugCounter(!wrespFIFO.io.empty).io.out, s"[FRINGE DENSEST] wrespFifo $storeid ~empty (stream.wresp.valid)")
+    connectDbgSig(debugCounter(stream.wresp.ready).io.out, s"[FRINGE DENSEST] wrespFifo $storeid deq (stream.wresp.ready)")
 
     m
   }

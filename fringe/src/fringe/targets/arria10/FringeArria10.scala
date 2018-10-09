@@ -47,7 +47,7 @@ class FringeArria10 (
 
     // Accel memory IO
     val heap = new HeapIO(numAllocators)
-    val memStreams = new AppStreams(LOAD_STREAMS, STORE_STREAMS)
+    val memStreams = new AppStreams(LOAD_STREAMS, STORE_STREAMS, GATHER_STREAMS, SCATTER_STREAMS)
     // TODO: need to add memory stream support
 
     // External enable

@@ -12,7 +12,7 @@ class GatherBuffer(
   val depth: Int,
   val burstSize: Int,
   val addrWidth: Int,
-  val loadCmd: Command,
+  val loadCmd: AppCommandDense,
   val readResp: DRAMReadResponse
 ) extends Module {
 

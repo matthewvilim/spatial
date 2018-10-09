@@ -29,13 +29,13 @@ class ScatterBuffer(
 
   val dataFIFO = List.fill(v) { Module(new FIFO(new ScatterData, d, true)) }
   val countFIFO = Module(new FIFO(UInt(countWidth.W), d, true))
-  val cmdFIFO = Module(new FIFO(new Command(addrWidth, sizeWidth, 0), d, true))
+  val cmdFIFO = Module(new FIFO(new AppCommandDense, d, true))
 
   class ScatterBufferIO extends Bundle {
     class WData extends Bundle {
       val data = Vec(v, UInt(streamW.W))
       val count = UInt(countWidth.W)
-      val cmd = new Command(addrWidth, sizeWidth, 0)
+      val cmd = new AppCommandDense
 
       override def cloneType(): this.type = new WData().asInstanceOf[this.type]
     }

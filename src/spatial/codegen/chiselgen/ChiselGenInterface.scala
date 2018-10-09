@@ -15,6 +15,11 @@ trait ChiselGenInterface extends ChiselGenCommon {
   var loadParMapping = List[String]()
   var storeParMapping = List[String]()
 
+  var gathersList = List[Sym[_]]()
+  var scattersList = List[Sym[_]]()
+  var gatherParMapping = List[String]()
+  var scatterParMapping = List[String]()
+
   override protected def gen(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case InputArguments() =>
     case ArgInNew(init)  => 
@@ -103,7 +108,7 @@ trait ChiselGenInterface extends ChiselGenCommon {
       val par = dataStream.readers.head match { case Op(e@StreamInBankedRead(strm, ens)) => ens.length }
 
       val id = loadsList.length
-      loadParMapping = loadParMapping :+ s"""StreamParInfo(${bitWidth(dram.tp.typeArgs.head)}, ${par}, 0, false)"""
+      loadParMapping = loadParMapping :+ s"""StreamParInfo(${bitWidth(dram.tp.typeArgs.head)}, ${par}, 0)"""
       loadsList = loadsList :+ dram
 
       emit(src"${swap(cmdStream, Ready)} := io.memStreams.loads($id).cmd.ready // Not sure why the cmdStream ready used to be delayed")
@@ -127,17 +132,15 @@ trait ChiselGenInterface extends ChiselGenCommon {
       appPropertyStats += HasGather
       val par = dataStream.readers.head match { case Op(e@StreamInBankedRead(strm, ens)) => ens.length }
 
-      val id = loadsList.length
-      // loadParMapping = loadParMapping :+ s"""StreamParInfo(if (FringeGlobals.target == "zcu") 32 else ${bitWidth(dram.tp.typeArgs.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, true)"""
-      loadParMapping = loadParMapping :+ s"""StreamParInfo(${bitWidth(dram.tp.typeArgs.head)}, ${par}, 0, true)"""
-      loadsList = loadsList :+ dram
+      val id = gathersList.length
+      gatherParMapping = gatherParMapping :+ s"""StreamParInfo(${bitWidth(dram.tp.typeArgs.head)}, ${par}, 0)"""
+      gathersList = gathersList :+ dram
 
       emit(src"${swap(cmdStream, Ready)} := io.memStreams.loads($id).cmd.ready // Not sure why the cmdStream ready used to be delayed")
-      emit(src"io.memStreams.loads($id).cmd.bits.addr := ${cmdStream}(0).r")
+      emit(src"io.memStreams.loads($id).cmd.bits.addr.zip($cmdStream).foreach { case (a,b) => a := b.r }")
       emit(src"io.memStreams.loads($id).cmd.bits.size := 1.U")
       emit(src"io.memStreams.loads($id).cmd.valid :=  ${swap(cmdStream, Valid)} & ${swap(cmdStream, Ready)}")
       emit(src"io.memStreams.loads($id).cmd.bits.isWr := false.B")
-      emit(src"io.memStreams.loads($id).cmd.bits.isSparse := 1.U")
 
       // Connect the streams to their IO interface signals
       emit(src"io.memStreams.loads($id).rdata.ready := ${swap(dataStream, Ready)}")
@@ -154,7 +157,7 @@ trait ChiselGenInterface extends ChiselGenCommon {
       val par = dataStream.writers.head match { case Op(e@StreamOutBankedWrite(_, _, ens)) => ens.length }
 
       val id = storesList.length
-      storeParMapping = storeParMapping :+ s"""StreamParInfo(${bitWidth(dram.tp.typeArgs.head)}, ${par}, 0, false)"""
+      storeParMapping = storeParMapping :+ s"""StreamParInfo(${bitWidth(dram.tp.typeArgs.head)}, ${par}, 0)"""
       storesList = storesList :+ dram
 
       // Connect streams to their IO interface signals
@@ -190,10 +193,9 @@ trait ChiselGenInterface extends ChiselGenCommon {
 
       Predef.assert(par == 1, s"Unsupported par '$par', only par=1 currently supported")
 
-      val id = storesList.length
-      // storeParMapping = storeParMapping :+ s"""StreamParInfo({if (FringeGlobals.target == "zcu") 32 else ${bitWidth(dram.tp.typeArgs.head)}}, ${par}, ${transferChannel(parentOf(lhs).get)}, true)"""
-      storeParMapping = storeParMapping :+ s"""StreamParInfo(${bitWidth(dram.tp.typeArgs.head)}, ${par}, 0, true)"""
-      storesList = storesList :+ dram
+      val id = scattersList.length
+      storeParMapping = storeParMapping :+ s"""StreamParInfo(${bitWidth(dram.tp.typeArgs.head)}, ${par}, 0)"""
+      scattersList = scattersList :+ dram
 
       // Connect IO interface signals to their streams
       val (dataMSB, dataLSB)  = getField(cmdStream.tp.typeArgs.head, "_1")
@@ -217,9 +219,11 @@ trait ChiselGenInterface extends ChiselGenCommon {
   override def emitFooter(): Unit = {
 
     inAccel{
-      val intersect = loadsList.distinct.intersect(storesList.distinct)
+      val loads = loadsList ++ gathersList
+      val stores = storesList ++ scattersList
+      val intersect = loads.distinct.intersect(stores.distinct)
 
-      val num_unusedDrams = hostDrams.toList.length - loadsList.distinct.length - storesList.distinct.length + intersect.length
+      val num_unusedDrams = hostDrams.toList.length - loads.distinct.length - stores.distinct.length + intersect.length
 
       inGen(out, "Instantiator.scala") {
         emit ("")
@@ -235,8 +239,11 @@ trait ChiselGenInterface extends ChiselGenCommon {
         emit (s"// Memory streams")
         emit (src"""val loadStreamInfo = List(${loadParMapping.map(_.replace("FringeGlobals.",""))}) """)
         emit (src"""val storeStreamInfo = List(${storeParMapping.map(_.replace("FringeGlobals.",""))}) """)
-        emit (src"""val numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/ - ${intersect.length} /*from bidirectional ${intersect}*/ + ${num_unusedDrams} /* from unused DRAMs */""")
+        emit (src"""val gatherStreamInfo = List(${gatherParMapping.map(_.replace("FringeGlobals.",""))}) """)
+        emit (src"""val scatterStreamInfo = List(${scatterParMapping.map(_.replace("FringeGlobals.",""))}) """)
+        emit (src"""val numArgIns_mem = ${loads.distinct.length} /*from loads*/ + ${stores.distinct.length} /*from stores*/ - ${intersect.length} /*from bidirectional ${intersect}*/ + ${num_unusedDrams} /* from unused DRAMs */""")
         emit (src"""// $loadsList $storesList)""")
+        emit (src"""// $gathersList $scattersList)""")
       }
 
       inGenn(out, "IOModule", ext) {
@@ -248,6 +255,8 @@ trait ChiselGenInterface extends ChiselGenCommon {
         emit ("// Memory Streams")
         emit (src"""val io_loadStreamInfo = List($loadParMapping) """)
         emit (src"""val io_storeStreamInfo = List($storeParMapping) """)
+        emit (src"""val io_gatherStreamInfo = List($gatherParMapping) """)
+        emit (src"""val io_scatterStreamInfo = List($scatterParMapping) """)
         emit (src"val io_numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/ - ${intersect.length} /*from bidirectional ${intersect}*/ + ${num_unusedDrams} /* from unused DRAMs */")
         emit (src"val outArgMuxMap: scala.collection.mutable.Map[Int, Int] = scala.collection.mutable.Map[Int,Int]()")
 

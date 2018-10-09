@@ -52,7 +52,7 @@ class FringeZynq(
     val argOutLoopbacks = Output(Vec(NUM_ARG_LOOPS, UInt(TARGET_W.W)))
 
     // Accel memory IO
-    val memStreams = new AppStreams(LOAD_STREAMS, STORE_STREAMS)
+    val memStreams = new AppStreams(LOAD_STREAMS, STORE_STREAMS, GATHER_STREAMS, SCATTER_STREAMS)
     val heap = new HeapIO(numAllocators)
 
     // External enable

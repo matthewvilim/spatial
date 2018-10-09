@@ -55,7 +55,7 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
     val argOutLoopbacks = Output(Vec(NUM_ARG_LOOPS, UInt(regWidth.W)))
 
     // Accel memory IO
-    val memStreams = new AppStreams(LOAD_STREAMS, STORE_STREAMS)
+    val memStreams = new AppStreams(LOAD_STREAMS, STORE_STREAMS, GATHER_STREAMS, SCATTER_STREAMS)
     val dram = Vec(NUM_CHANNELS, new DRAMStream(DATA_WIDTH, WORDS_PER_STREAM))
     val heap = new HeapIO(numAllocators)
 
@@ -92,8 +92,10 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
       w = DATA_WIDTH,
       d = d,
       v = WORDS_PER_STREAM,
-      loadStreamInfo  = LOAD_STREAMS,
+      loadStreamInfo = LOAD_STREAMS,
       storeStreamInfo = STORE_STREAMS,
+      gatherStreamInfo = GATHER_STREAMS,
+      scatterStreamInfo = SCATTER_STREAMS,
       numOutstandingBursts,
       burstSizeBytes,
       axiParams,
@@ -101,6 +103,8 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
     ))
     mag.io.app.loads.zip(loadStreams).foreach{ case (l, ls) => l <> ls }
     mag.io.app.stores.zip(storeStreams).foreach{ case (s, ss) => s <> ss }
+    mag.io.app.gathers.zip(io.memStreams.gathers).foreach{ case (g, gs) => g <> gs }
+    mag.io.app.scatters.zip(io.memStreams.scatters).foreach{ case (s, ss) => s <> ss }
     mag
   }
 
@@ -180,9 +184,6 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
   io.argOutLoopbacks := regs.io.argOutLoopbacks
 
   // Memory address generator
-  val magConfig = Wire(MAGOpcode())
-  magConfig.scatterGather := false.B
-  mags.foreach { _.io.config := magConfig }
   mags.foreach { _.io.reset := localReset }
   mags.foreach { _.reset := localReset }
   if (target.isInstanceOf[targets.aws.AWS_F1]) {

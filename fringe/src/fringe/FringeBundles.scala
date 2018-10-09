@@ -4,37 +4,25 @@ import chisel3._
 import chisel3.util._
 import fringe.utils._
 
-/**
- * DRAM Memory Access Generator
- * MAG config register format
- */
-case class MAGOpcode() extends Bundle {
-  val scatterGather = Bool()
-
-  override def cloneType(): this.type = MAGOpcode().asInstanceOf[this.type]
-}
-
-class Command(val addrWidth: Int, val sizeWidth: Int, memChannel: Int) extends Bundle {
+class AppCommandDense(val addrWidth: Int = 64, val sizeWidth: Int = 32) extends Bundle {
   val addr = UInt(addrWidth.W)
   val isWr = Bool()
-  val isSparse = Bool()
   val size = UInt(sizeWidth.W)
 
-  override def cloneType(): this.type = new Command(addrWidth, sizeWidth, memChannel).asInstanceOf[this.type]
+  override def cloneType(): this.type = new AppCommandDense(addrWidth, sizeWidth).asInstanceOf[this.type]
 }
 
-// Parallelization and word width information
-case class StreamParInfo(w: Int, v: Int, memChannel: Int, isSparse: Boolean)
+class AppCommandSparse(val v: Int, val addrWidth: Int = 64) extends Bundle {
+  val addr = Vec(v, UInt(addrWidth.W))
+  val isWr = Bool()
 
-class MemoryStream(addrWidth: Int, sizeWidth: Int, memChannel: Int) extends Bundle {
-  val cmd = Flipped(Decoupled(new Command(addrWidth, sizeWidth, 0)))
-
-  override def cloneType(): this.type = {
-    new MemoryStream(addrWidth, sizeWidth, memChannel).asInstanceOf[this.type]
-  }
+  override def cloneType(): this.type = new AppCommandSparse(v, addrWidth).asInstanceOf[this.type]
 }
 
-class LoadStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64, sizeWidth = 32, memChannel = 0) {
+case class StreamParInfo(w: Int, v: Int, memChannel: Int)
+
+class LoadStream(p: StreamParInfo) extends Bundle {
+  val cmd = Flipped(Decoupled(new AppCommandDense))
   val rdata = Decoupled(Vec(p.v, UInt(p.w.W)))
 
   override def cloneType(): this.type = {
@@ -42,7 +30,8 @@ class LoadStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64, sizeWidt
   }
 }
 
-class StoreStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64, sizeWidth = 32, memChannel = 0) {
+class StoreStream(p: StreamParInfo) extends Bundle {
+  val cmd = Flipped(Decoupled(new AppCommandDense))
   val wdata = Flipped(Decoupled(Vec(p.v, UInt(p.w.W))))
   val wstrb = Flipped(Decoupled(UInt(p.v.W)))
   val wresp = Decoupled(Bool())
@@ -50,11 +39,34 @@ class StoreStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64, sizeWid
   override def cloneType(): this.type = new StoreStream(p).asInstanceOf[this.type]
 }
 
-class AppStreams(loadPar: List[StreamParInfo], storePar: List[StreamParInfo]) extends Bundle {
+class GatherStream(p: StreamParInfo) extends Bundle {
+  val cmd = Flipped(Decoupled(new AppCommandSparse(p.v)))
+  val rdata = Decoupled(Vec(p.v, UInt(p.w.W)))
+
+  override def cloneType(): this.type = {
+    new LoadStream(p).asInstanceOf[this.type]
+  }
+}
+
+class ScatterStream(p: StreamParInfo) extends Bundle {
+  val cmd = Flipped(Decoupled(new AppCommandSparse(p.v)))
+  val wdata = Flipped(Decoupled(Vec(p.v, UInt(p.w.W))))
+  val wstrb = Flipped(Decoupled(UInt(p.v.W)))
+  val wresp = Decoupled(Bool())
+
+  override def cloneType(): this.type = new StoreStream(p).asInstanceOf[this.type]
+}
+
+class AppStreams(loadPar: List[StreamParInfo], storePar: List[StreamParInfo],
+                 gatherPar: List[StreamParInfo], scatterPar: List[StreamParInfo]) extends Bundle {
   val loads = HVec.tabulate(loadPar.size){ i => new LoadStream(loadPar(i)) }
   val stores = HVec.tabulate(storePar.size){ i => new StoreStream(storePar(i)) }
+  val gathers = HVec.tabulate(gatherPar.size){ i => new LoadStream(gatherPar(i)) }
+  val scatters = HVec.tabulate(scatterPar.size){ i => new StoreStream(scatterPar(i)) }
+  //val gathers = HVec.tabulate(gatherPar.size){ i => new GatherStream(gatherPar(i)) }
+  //val scatters = HVec.tabulate(scatterPar.size){ i => new ScatterStream(scatterPar(i)) }
 
-  override def cloneType(): this.type = new AppStreams(loadPar, storePar).asInstanceOf[this.type]
+  override def cloneType(): this.type = new AppStreams(loadPar, storePar, gatherPar, scatterPar).asInstanceOf[this.type]
 }
 
 class DRAMCommandTag extends Bundle {
@@ -66,7 +78,7 @@ class DRAMCommandTag extends Bundle {
   override def cloneType(): this.type = new DRAMCommandTag().asInstanceOf[this.type]
 }
 
-class DRAMCommand(w: Int, v: Int) extends Bundle {
+class DRAMCommand extends Bundle {
   val addr = UInt(64.W)
   val size = UInt(32.W)
   val rawAddr = UInt(64.W)
@@ -74,7 +86,7 @@ class DRAMCommand(w: Int, v: Int) extends Bundle {
   val tag = new DRAMCommandTag
   val dramReadySeen = Bool()
 
-  override def cloneType(): this.type = new DRAMCommand(w, v).asInstanceOf[this.type]
+  override def cloneType(): this.type = new DRAMCommand().asInstanceOf[this.type]
 }
 
 class DRAMWdata(w: Int, v: Int) extends Bundle {
@@ -99,7 +111,7 @@ class DRAMWriteResponse(w: Int, v: Int) extends Bundle {
 }
 
 class DRAMStream(w: Int, v: Int) extends Bundle {
-  val cmd = Decoupled(new DRAMCommand(w, v))
+  val cmd = Decoupled(new DRAMCommand)
   val wdata = Decoupled(new DRAMWdata(w, v))
   val rresp = Flipped(Decoupled(new DRAMReadResponse(w, v)))
   val wresp = Flipped(Decoupled(new DRAMWriteResponse(w, v)))
@@ -197,18 +209,3 @@ class HeapIO(numAlloc: Int) extends Bundle {
   override def cloneType(): this.type = new HeapIO(numAlloc).asInstanceOf[this.type]
 }
 
-//class StreamOutAccel(p: StreamParInfo) extends Bundle {
-//  val data = UInt(p.w.W)
-//  val tag = UInt(p.w.W)
-//  val last = Bool()
-//
-//  override def cloneType(): this.type = { new StreamOutAccel(p).asInstanceOf[this.type] }
-//}
-//
-//class StreamInAccel(p: StreamParInfo) extends Bundle {
-//  val data = UInt(p.w.W)
-//  val tag = UInt(p.w.W)
-//  val last = Bool()
-//
-//  override def cloneType(): this.type = { new StreamInAccel(p).asInstanceOf[this.type] }
-//}
