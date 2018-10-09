@@ -7,7 +7,7 @@ import fringe.targets.asic.ASIC
 import fringe.targets.vcs.VCS
 import fringe.utils._
 import fringe.templates.axi4._
-import fringe.templates.mag.MAGCore
+import fringe.templates.streamarbiter.StreamArbiter
 import fringe.templates.heap.DRAMHeap
 import fringe.templates.counters.FringeCounter
 import fringe.templates.memory.RegFile
@@ -84,11 +84,11 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
     val (loads, absStores) = channelAssignment.partition(_ < NUM_LOAD_STREAMS)
     val stores = absStores.map{ _ - NUM_LOAD_STREAMS } // Compute indices into stores array
 
-    println(s"[Fringe] Creating MAG $i, assignment: $channelAssignment, Loads: $loads, Stores: $stores")
+    println(s"[Fringe] Creating Stream Arbiter $i, assignment: $channelAssignment, Loads: $loads, Stores: $stores")
     val loadStreams = loads.map{ io.memStreams.loads(_) }
     val storeStreams = stores.map{ io.memStreams.stores(_) }
 
-    val mag = Module(new MAGCore(
+    val streamArb = Module(new StreamArbiter(
       w = DATA_WIDTH,
       d = d,
       v = WORDS_PER_STREAM,
@@ -101,11 +101,11 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
       axiParams,
       debugChannelID == i
     ))
-    mag.io.app.loads.zip(loadStreams).foreach{ case (l, ls) => l <> ls }
-    mag.io.app.stores.zip(storeStreams).foreach{ case (s, ss) => s <> ss }
-    mag.io.app.gathers.zip(io.memStreams.gathers).foreach{ case (g, gs) => g <> gs }
-    mag.io.app.scatters.zip(io.memStreams.scatters).foreach{ case (s, ss) => s <> ss }
-    mag
+    streamArb.io.app.loads.zip(loadStreams).foreach{ case (l, ls) => l <> ls }
+    streamArb.io.app.stores.zip(storeStreams).foreach{ case (s, ss) => s <> ss }
+    streamArb.io.app.gathers.zip(io.memStreams.gathers).foreach{ case (g, gs) => g <> gs }
+    streamArb.io.app.scatters.zip(io.memStreams.scatters).foreach{ case (s, ss) => s <> ss }
+    streamArb
   }
 
   val heap = Module(new DRAMHeap(numAllocators))
@@ -193,9 +193,7 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
     mags.foreach { _.io.enable := localEnable }
   }
 
-//  mag.io.app <> io.memStreams
-
-  mags.zip(io.dram) foreach { case (mag, d) => mag.io.dram <> d }
+  mags.zip(io.dram) foreach { case (streamarb, d) => streamarb.io.dram <> d }
 
   mags(debugChannelID).io.TOP_AXI <> io.TOP_AXI
   mags(debugChannelID).io.DWIDTH_AXI <> io.DWIDTH_AXI

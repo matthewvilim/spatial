@@ -19,6 +19,9 @@ class StreamArbiter(
   val isDebugChannel: Boolean = false
 ) extends Module {
 
+  assert(streamTagWidth <= (new DRAMCommandTag).streamId.getWidth)
+  val axiLiteParams = new AXI4BundleParameters(64, 512, 1)
+
   val io = IO(new Bundle {
     val enable = Input(Bool())
     val reset = Input(Bool())
@@ -32,4 +35,13 @@ class StreamArbiter(
     val PROTOCOL_AXI = new AXI4Probe(axiLiteParams)
     val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
   })
+
+  val loadControllers = loadStreamInfo.zipWithIndex.map { case (s, i) =>
+    val m = Module(new LoadStreamController(io.dram, io.app.loads(i)))
+    m.io.dram <> 
+  }
+
+  val storeControllers = loadStreamInfo.zipWithIndex.map { case (s, i) =>
+    val m = Module(new StoreStreamController(io.dram, io.app.loads(i)))
+  }
 }
