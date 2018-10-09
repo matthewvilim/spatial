@@ -6,7 +6,6 @@ import fringe._
 
 class StreamControllerLoadIO(dramStream: DRAMStream, loadStream: LoadStream) extends StreamControllerIO(dramStream) {
   val load = loadStream.cloneType
-  val sizeCounterDone = Bool()
 }
 
 class StreamControllerLoad(

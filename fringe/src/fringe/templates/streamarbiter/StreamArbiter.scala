@@ -18,8 +18,10 @@ class StreamArbiter(
   val axiParams: AXI4BundleParameters,
   val isDebugChannel: Boolean = false
 ) extends Module {
-
+  val numStreams = loadStreamInfo.size + storeStreamInfo.size + gatherStreamInfo.size + scatterStreamInfo.size
+  val streamTagWidth = log2Up(numStreams)
   assert(streamTagWidth <= (new DRAMCommandTag).streamId.getWidth)
+
   val axiLiteParams = new AXI4BundleParameters(64, 512, 1)
 
   val io = IO(new Bundle {
@@ -36,12 +38,9 @@ class StreamArbiter(
     val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
   })
 
-  val loadControllers = loadStreamInfo.zipWithIndex.map { case (s, i) =>
-    val m = Module(new LoadStreamController(io.dram, io.app.loads(i)))
-    m.io.dram <> 
+  val loadControllers = io.app.loads.foreach { load =>
+    val m = Module(new StreamControllerLoad(io.dram, load))
+    m.io.dram <> load
   }
 
-  val storeControllers = loadStreamInfo.zipWithIndex.map { case (s, i) =>
-    val m = Module(new StoreStreamController(io.dram, io.app.loads(i)))
-  }
 }
