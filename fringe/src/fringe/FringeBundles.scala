@@ -6,7 +6,6 @@ import fringe.utils._
 
 class AppCommandDense(val addrWidth: Int = 64, val sizeWidth: Int = 32) extends Bundle {
   val addr = UInt(addrWidth.W)
-  val isWr = Bool()
   val size = UInt(sizeWidth.W)
 
   override def cloneType(): this.type = new AppCommandDense(addrWidth, sizeWidth).asInstanceOf[this.type]
@@ -14,7 +13,6 @@ class AppCommandDense(val addrWidth: Int = 64, val sizeWidth: Int = 32) extends 
 
 class AppCommandSparse(val v: Int, val addrWidth: Int = 64) extends Bundle {
   val addr = Vec(v, UInt(addrWidth.W))
-  val isWr = Bool()
 
   override def cloneType(): this.type = new AppCommandSparse(v, addrWidth).asInstanceOf[this.type]
 }
@@ -82,7 +80,7 @@ class DRAMCommand extends Bundle {
   val addr = UInt(64.W)
   val size = UInt(32.W)
   val rawAddr = UInt(64.W)
-  val isWr = Bool() // 1
+  val isWr = Bool()
   val tag = new DRAMCommandTag
 
   override def cloneType(): this.type = new DRAMCommand().asInstanceOf[this.type]
@@ -97,7 +95,7 @@ class DRAMWdata(w: Int, v: Int) extends Bundle {
 }
 
 class DRAMReadResponse(w: Int, v: Int) extends Bundle {
-  val rdata = Vec(v, UInt(w.W)) // v
+  val rdata = Vec(v, UInt(w.W))
   val tag = new DRAMCommandTag
 
   override def cloneType(): this.type = new DRAMReadResponse(w, v).asInstanceOf[this.type]

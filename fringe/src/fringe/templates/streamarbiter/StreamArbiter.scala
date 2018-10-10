@@ -41,16 +41,16 @@ class StreamArbiter(
     val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
   })
 
-  val loadControllers = List.tabulate(loadStreamInfo.size) { i =>
+  val loadControllers = loadStreamInfo.zipWithIndex.map { case (s, i) =>
     val load = io.app.loads(i)
-    val m = Module(new StreamControllerLoad(io.dram, load))
+    val m = Module(new StreamControllerLoad(s, d, io.dram, load))
     m.io.dram <> load
     m
   }
 
-  val storeControllers = List.tabulate(storeStreamInfo.size) { i =>
+  val storeControllers = storeStreamInfo.zipWithIndex.map { case (s, i) =>
     val store = io.app.stores(i)
-    val m = Module(new StreamControllerStore(io.dram, store))
+    val m = Module(new StreamControllerStore(s, d, io.dram, store))
     m.io.dram <> store
     m
   }
