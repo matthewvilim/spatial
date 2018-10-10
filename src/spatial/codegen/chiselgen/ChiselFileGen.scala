@@ -210,7 +210,7 @@ trait ChiselFileGen extends ChiselCodegen {
         emit ("globals.streamOutsInfo = io_streamOutsInfo")
         emit ("globals.numAllocators = io_numAllocators")
 
-        open("val io = IO(new CustomAccelInterface(io_w, io_v, globals.LOAD_STREAMS, globals.STORE_STREAMS, globals.numAllocators, io_numArgIns, io_numArgOuts, io_numArgOutLoopbacks))")
+        open("val io = IO(new CustomAccelInterface(io_w, io_v, globals.LOAD_STREAMS, globals.STORE_STREAMS, globals.GATHER_STREAMS, globals.SCATTER_STREAMS, globals.numAllocators, io_numArgIns, io_numArgOuts, io_numArgOutLoopbacks))")
   //         emit ("")
   //         emit ("// Stream IO")
   //         emit ("// val genericStreams = new GenericStreams(io_streamInsInfo, io_streamOutsInfo)")

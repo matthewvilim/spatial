@@ -6,19 +6,19 @@ import fringe.templates.memory._
 import fringe.utils.log2Up
 
 class FIFOIO[T <: Data](t: T, depth: Int) extends Bundle {
-  val in = Flipped(Decoupled(t))
-  val out = Decoupled(t)
+  val in = Flipped(Decoupled(t.cloneType))
+  val out = Decoupled(t.cloneType)
   val count = Output(UInt(log2Up(depth + 1).W))
 
   class Bank[T <: Data] extends Bundle {
-    val wdata = Flipped(Valid(t))
-    val rdata = Valid(t)
-    override def cloneType(): this.type = new Bank().asInstanceOf[this.type]
+    val wdata = Flipped(Valid(t.cloneType))
+    val rdata = Valid(t.cloneType)
+    override def cloneType: this.type = new Bank().asInstanceOf[this.type]
   }
 
   val banks = Vec(depth, new Bank)
 
-  override def cloneType(): this.type = new FIFOIO(t, depth).asInstanceOf[this.type]
+  override def cloneType: this.type = new FIFOIO(t, depth).asInstanceOf[this.type]
 }
 
 class FIFO[T <: Data](t: T, depth: Int, banked: Boolean = false) extends Module {

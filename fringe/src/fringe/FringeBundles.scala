@@ -59,10 +59,8 @@ class AppStreams(loadPar: List[StreamParInfo], storePar: List[StreamParInfo],
                  gatherPar: List[StreamParInfo], scatterPar: List[StreamParInfo]) extends Bundle {
   val loads = HVec.tabulate(loadPar.size){ i => new LoadStream(loadPar(i)) }
   val stores = HVec.tabulate(storePar.size){ i => new StoreStream(storePar(i)) }
-  val gathers = HVec.tabulate(gatherPar.size){ i => new LoadStream(gatherPar(i)) }
-  val scatters = HVec.tabulate(scatterPar.size){ i => new StoreStream(scatterPar(i)) }
-  //val gathers = HVec.tabulate(gatherPar.size){ i => new GatherStream(gatherPar(i)) }
-  //val scatters = HVec.tabulate(scatterPar.size){ i => new ScatterStream(scatterPar(i)) }
+  val gathers = HVec.tabulate(gatherPar.size){ i => new GatherStream(gatherPar(i)) }
+  val scatters = HVec.tabulate(scatterPar.size){ i => new ScatterStream(scatterPar(i)) }
 
   override def cloneType(): this.type = new AppStreams(loadPar, storePar, gatherPar, scatterPar).asInstanceOf[this.type]
 }

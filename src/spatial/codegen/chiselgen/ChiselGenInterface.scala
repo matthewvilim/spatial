@@ -118,8 +118,6 @@ trait ChiselGenInterface extends ChiselGenCommon {
       emit(src"io.memStreams.loads($id).cmd.bits.addr := ${cmdStream}(0)($addrMSB,$addrLSB)")
       emit(src"io.memStreams.loads($id).cmd.bits.size := ${cmdStream}(0)($sizeMSB,$sizeLSB)")
       emit(src"io.memStreams.loads($id).cmd.valid :=  ${swap(cmdStream, Valid)} & ${swap(cmdStream, Ready)}")
-      emit(src"io.memStreams.loads($id).cmd.bits.isWr := ~${cmdStream}(0)($isLdMSB,$isLdLSB)")
-      emit(src"io.memStreams.loads($id).cmd.bits.isSparse := 0.U")
 
       // Connect the streams to their IO interface signals
       emit(src"io.memStreams.loads($id).rdata.ready := ${swap(dataStream, Ready)}")
@@ -136,16 +134,14 @@ trait ChiselGenInterface extends ChiselGenCommon {
       gatherParMapping = gatherParMapping :+ s"""StreamParInfo(${bitWidth(dram.tp.typeArgs.head)}, ${par}, 0)"""
       gathersList = gathersList :+ dram
 
-      emit(src"${swap(cmdStream, Ready)} := io.memStreams.loads($id).cmd.ready // Not sure why the cmdStream ready used to be delayed")
-      emit(src"io.memStreams.loads($id).cmd.bits.addr.zip($cmdStream).foreach { case (a,b) => a := b.r }")
-      emit(src"io.memStreams.loads($id).cmd.bits.size := 1.U")
-      emit(src"io.memStreams.loads($id).cmd.valid :=  ${swap(cmdStream, Valid)} & ${swap(cmdStream, Ready)}")
-      emit(src"io.memStreams.loads($id).cmd.bits.isWr := false.B")
+      emit(src"${swap(cmdStream, Ready)} := io.memStreams.gathers($id).cmd.ready // Not sure why the cmdStream ready used to be delayed")
+      emit(src"io.memStreams.gathers($id).cmd.bits.addr.zip($cmdStream).foreach { case (a,b) => a := b.r }")
+      emit(src"io.memStreams.gathers($id).cmd.valid :=  ${swap(cmdStream, Valid)} & ${swap(cmdStream, Ready)}")
 
       // Connect the streams to their IO interface signals
-      emit(src"io.memStreams.loads($id).rdata.ready := ${swap(dataStream, Ready)}")
-      emit(src"""${dataStream}.zip(io.memStreams.loads($id).rdata.bits).foreach{case (a,b) => a.r := ${DL("b", src"${dataStream.readers.head.fullDelay}.toInt")}}""")
-      emit(src"""${swap(dataStream, NowValid)} := io.memStreams.loads($id).rdata.valid""")
+      emit(src"io.memStreams.gathers($id).rdata.ready := ${swap(dataStream, Ready)}")
+      emit(src"""${dataStream}.zip(io.memStreams.gathers($id).rdata.bits).foreach{case (a,b) => a.r := ${DL("b", src"${dataStream.readers.head.fullDelay}.toInt")}}""")
+      emit(src"""${swap(dataStream, NowValid)} := io.memStreams.gathers($id).rdata.valid""")
       emit(src"""${swap(dataStream, Valid)} := ${DL(swap(dataStream, NowValid), src"${dataStream.readers.head.fullDelay}.toInt", true)}""")
 
     case FringeDenseStore(dram,cmdStream,dataStream,ackStream) =>
@@ -177,8 +173,6 @@ trait ChiselGenInterface extends ChiselGenCommon {
       emit(src"io.memStreams.stores($id).cmd.bits.addr := ${cmdStream}(0)($addrMSB,$addrLSB)")
       emit(src"io.memStreams.stores($id).cmd.bits.size := ${cmdStream}(0)($sizeMSB,$sizeLSB)")
       emit(src"io.memStreams.stores($id).cmd.valid :=  ${swap(cmdStream, Valid)} & ${swap(cmdStream, Ready)}")
-      emit(src"io.memStreams.stores($id).cmd.bits.isWr := ~${cmdStream}(0)($isLdMSB,$isLdLSB)")
-      emit(src"io.memStreams.stores($id).cmd.bits.isSparse := 0.U")
 
       emit(src"${swap(cmdStream, Ready)} := io.memStreams.stores($id).cmd.ready")
       emit(src"""${swap(ackStream, NowValid)} := io.memStreams.stores($id).wresp.valid""")
@@ -206,8 +200,6 @@ trait ChiselGenInterface extends ChiselGenCommon {
       emit(src"io.memStreams.stores($id).cmd.bits.addr := ${cmdStream}(0)($addrMSB, $addrLSB) // TODO: Is this always a vec of size 1?")
       emit(src"io.memStreams.stores($id).cmd.bits.size := 1.U")
       emit(src"io.memStreams.stores($id).cmd.valid :=  ${swap(cmdStream, Valid)} & ${swap(cmdStream, Ready)}")
-      emit(src"io.memStreams.stores($id).cmd.bits.isWr := 1.U")
-      emit(src"io.memStreams.stores($id).cmd.bits.isSparse := 1.U")
       emit(src"${swap(cmdStream, Ready)} := io.memStreams.stores($id).cmd.ready & io.memStreams.stores($id).wdata.ready")
       emit(src"""${swap(ackStream, NowValid)} := io.memStreams.stores($id).wresp.valid""")
       emit(src"""${swap(ackStream, Valid)} := ${DL(swap(ackStream, NowValid), src"${ackStream.readers.head.fullDelay}.toInt", true)}""")
@@ -257,7 +249,7 @@ trait ChiselGenInterface extends ChiselGenCommon {
         emit (src"""val io_storeStreamInfo = List($storeParMapping) """)
         emit (src"""val io_gatherStreamInfo = List($gatherParMapping) """)
         emit (src"""val io_scatterStreamInfo = List($scatterParMapping) """)
-        emit (src"val io_numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/ - ${intersect.length} /*from bidirectional ${intersect}*/ + ${num_unusedDrams} /* from unused DRAMs */")
+        emit (src"val io_numArgIns_mem = ${loads.distinct.length} /*from loads*/ + ${stores.distinct.length} /*from stores*/ - ${intersect.length} /*from bidirectional ${intersect}*/ + ${num_unusedDrams} /* from unused DRAMs */")
         emit (src"val outArgMuxMap: scala.collection.mutable.Map[Int, Int] = scala.collection.mutable.Map[Int,Int]()")
 
       }

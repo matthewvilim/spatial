@@ -39,7 +39,7 @@ class StreamControllerLoad(
   
   io.dram.cmd.bits.addr := cmd.io.out.bits.addr
   io.dram.cmd.bits.rawAddr := cmd.io.out.bits.addr
-  io.dram.cmd.bits.size := cmd.io.out.size
+  io.dram.cmd.bits.size := cmd.io.out.bits.size
   io.dram.cmd.bits.isWr := false.B
 
   val rdata = Module(new FIFOWidthConvert(externalW, externalV, info.w, info.v, depth))
@@ -71,9 +71,9 @@ class StreamControllerStore(
   cmd.io.out.ready := io.dram.cmd.ready
   io.dram.cmd.valid := cmd.io.out.valid
   
-  io.dram.cmd.bits.addr := cmd.io.out.addr
-  io.dram.cmd.bits.rawAddr := cmd.io.out.addr
-  io.dram.cmd.bits.size := cmd.io.out.size
+  io.dram.cmd.bits.addr := cmd.io.out.bits.addr
+  io.dram.cmd.bits.rawAddr := cmd.io.out.bits.addr
+  io.dram.cmd.bits.size := cmd.io.out.bits.size
   io.dram.cmd.bits.isWr := true.B
 
   val wdata = Module(new FIFOWidthConvert(info.w, info.v, externalW, externalV, depth))
@@ -84,8 +84,8 @@ class StreamControllerStore(
   io.store.wstrb.ready := wdata.io.in.ready
 
   io.dram.wdata.valid := wdata.io.out.valid
-  io.dram.wdata.bits.wdata := wdata.io.out.data
-  io.dram.wdata.bits.wstrb := wdata.io.out.strobe
+  io.dram.wdata.bits.wdata := wdata.io.out.bits.data
+  io.dram.wdata.bits.wstrb := wdata.io.out.bits.strobe
   wdata.io.out.ready := io.dram.wdata.ready
 
   val wresp = Module(new FIFO(Bool(), depth))

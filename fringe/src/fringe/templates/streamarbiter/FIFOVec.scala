@@ -13,8 +13,8 @@ class FIFOVec[T <: Data](t: T, depth: Int, v: Int) extends Module {
   val addrWidth = log2Up(depth)
 
   val io = IO(new Bundle {
-		val in = Flipped(Decoupled(Vec(v, t)))
-		val out = Decoupled(Vec(v, t))
+		val in = Flipped(Decoupled(Vec(v, t.cloneType)))
+		val out = Decoupled(Vec(v, t.cloneType))
 		val chainEnq = Input(Bool())
 		val chainDeq = Input(Bool())
 	})

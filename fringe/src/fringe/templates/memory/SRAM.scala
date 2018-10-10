@@ -61,32 +61,32 @@ class GenericRAMIO[T<:Data](t: T, d: Int) extends Bundle {
   val raddr = Input(UInt(addrWidth.W))
   val wen = Input(Bool())
   val waddr = Input(UInt(addrWidth.W))
-  val wdata = Input(t)
-  val rdata = Output(t)
+  val wdata = Input(t.cloneType)
+  val rdata = Output(t.cloneType)
   val flow = Input(Bool())
 
-  override def cloneType(): this.type = {
+  override def cloneType: this.type = {
     new GenericRAMIO(t, d).asInstanceOf[this.type]
   }
 }
 
 abstract class GenericRAM[T<:Data](val t: T, val d: Int) extends Module {
   val addrWidth = {1 max log2Ceil(d)}
-  val io = IO(new GenericRAMIO(t, d))
+  val io: GenericRAMIO[T]
 }
 
-class FFRAM[T<:Data](val t: T, val d: Int) extends Module {
+class FFRAM[T<:Data](override val t: T, override val d: Int) extends GenericRAM(t, d) {
   class FFRAMIO[T<:Data](t: T, d: Int) extends GenericRAMIO(t, d) {
     class Bank[T<:Data](t: T, d: Int) extends Bundle {
-      val wdata = Flipped(Valid(t))
-      val rdata = Output(t)
+      val wdata = Flipped(Valid(t.cloneType))
+      val rdata = Output(t.cloneType)
 
-      override def cloneType(): this.type = new Bank(t, d).asInstanceOf[this.type]
+      override def cloneType: this.type = new Bank(t, d).asInstanceOf[this.type]
     }
 
-    val banks = Vec(d, new Bank(t, d))
+    val banks = Vec(d, new Bank(t.cloneType, d))
 
-    override def cloneType(): this.type = new FFRAMIO(t, d).asInstanceOf[this.type]
+    override def cloneType: this.type = new FFRAMIO(t, d).asInstanceOf[this.type]
   }
 
   val io = IO(new FFRAMIO(t, d))
@@ -106,6 +106,8 @@ class FFRAM[T<:Data](val t: T, val d: Int) extends Module {
 }
 
 class SRAM[T<:Data](override val t: T, override val d: Int, val resourceType: String) extends GenericRAM(t, d) {
+  val io = IO(new GenericRAMIO(t, d))
+
   // Customize SRAM here
   // TODO: Still needs some cleanup
   globals.target match {
