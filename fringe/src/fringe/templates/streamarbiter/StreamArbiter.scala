@@ -41,6 +41,17 @@ class StreamArbiter(
   val loadControllers = io.app.loads.foreach { load =>
     val m = Module(new StreamControllerLoad(io.dram, load))
     m.io.dram <> load
+    m
   }
+
+  val storeControllers = io.app.stores.foreach { store =>
+    val m = Module(new StreamControllerStore(io.dram, store))
+    m.io.dram <> store
+    m
+  }
+
+  val dramArbiter = Module(new DRAMArbiter(io.dram, numStreams))
+  dramArbiter.io.dram <> io.dram
+  dramArbiter.io.app <> Vec(loadControllers.map { _.io.dram } ++ storeControllers.map { _.io.dram })
 
 }
