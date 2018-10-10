@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util._
 
 import fringe._
+import fringe.templates.axi4._
 
 class StreamArbiter(
   val w: Int,
@@ -19,8 +20,10 @@ class StreamArbiter(
   val isDebugChannel: Boolean = false
 ) extends Module {
   val numStreams = loadStreamInfo.size + storeStreamInfo.size + gatherStreamInfo.size + scatterStreamInfo.size
-  val streamTagWidth = log2Up(numStreams)
+  val streamTagWidth = log2Ceil(numStreams)
   assert(streamTagWidth <= (new DRAMCommandTag).streamId.getWidth)
+
+  val numDebugs = 500
 
   val axiLiteParams = new AXI4BundleParameters(64, 512, 1)
 
@@ -38,14 +41,16 @@ class StreamArbiter(
     val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
   })
 
-  val loadControllers = io.app.loads.foreach { load =>
-    val m = Module(new DRAMStreamControllerLoad(io.dram, load))
+  val loadControllers = List.tabulate(loadStreamInfo.size) { i =>
+    val load = io.app.loads(i)
+    val m = Module(new StreamControllerLoad(io.dram, load))
     m.io.dram <> load
     m
   }
 
-  val storeControllers = io.app.stores.foreach { store =>
-    val m = Module(new DRAMStreamControllerStore(io.dram, store))
+  val storeControllers = List.tabulate(storeStreamInfo.size) { i =>
+    val store = io.app.stores(i)
+    val m = Module(new StreamControllerStore(io.dram, store))
     m.io.dram <> store
     m
   }

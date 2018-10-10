@@ -1,4 +1,4 @@
-package fringe.templates.mag
+package fringe.templates.streamarbiter
 
 import chisel3._
 import chisel3.util._
