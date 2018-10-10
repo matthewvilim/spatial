@@ -7,26 +7,23 @@ import fringe._
 abstract class StreamController(
   dramStream: DRAMStream
 ) extends Module {
-  class StreamControllerIO(dramStream: DRAMStream) extends Bundle {
+  class StreamControllerIO extends Bundle {
     val dram = dramStream.cloneType()
   }
 
-  val io: DRAMStreamControllerIO
+  val io: StreamControllerIO
 }
 
 class StreamControllerLoad(
   dramStream: DRAMStream,
-  loadStream: LoadStream
+  app: LoadStream
 ) extends StreamController(dramStream) {
 
-  class StreamControllerLoadIO(
-    dramStream: DRAMStream,
-    loadStream: LoadStream
-  ) extends StreamControllerIO(dramStream) {
-    val load = loadStream.cloneType
+  class StreamControllerLoadIO extends StreamControllerIO {
+    val load = app.cloneType
   }
 
-  val io = IO(new StreamControllerLoadIO(dramStream, loadStream))
+  val io = IO(new StreamControllerLoadIO)
 
   /*
   val rdata = Module(new FIFOWidthConvert(external_w, io.dram.rresp.bits.rdata.size, info.w, info.v, d))
@@ -43,15 +40,36 @@ class StreamControllerLoad(
 
 class StreamControllerStore(
   dramStream: DRAMStream,
-  storeStream: StoreStream
+  app: StoreStream
 ) extends StreamController(dramStream) {
 
-  class StreamControllerStoreIO(
-    dramStream: DRAMStream,
-    storeStream: StoreStream
-  ) extends StreamControllerIO(dramStream) {
-    val store = storeStream.cloneType()
+  class StreamControllerStoreIO extends StreamControllerIO {
+    val store = app.cloneType()
   }
 
-  val io = IO(new StreamControllerStoreIO(dramStream, storeStream))
+  val io = IO(new StreamControllerStoreIO)
+}
+
+class StreamControllerGather(
+  dramStream: DRAMStream,
+  app: GatherStream
+) extends StreamController(dramStream) {
+
+  class StreamControllerGatherIO extends StreamControllerIO {
+    val store = app.cloneType()
+  }
+
+  val io = IO(new StreamControllerGatherIO)
+}
+
+class StreamControllerScatter(
+  dramStream: DRAMStream,
+  app: ScatterStream
+) extends StreamController(dramStream) {
+
+  class StreamControllerScatterIO extends StreamControllerIO {
+    val store = app.cloneType()
+  }
+
+  val io = IO(new StreamControllerScatterIO)
 }

@@ -69,13 +69,13 @@ class AppStreams(loadPar: List[StreamParInfo], storePar: List[StreamParInfo],
   override def cloneType(): this.type = new AppStreams(loadPar, storePar, gatherPar, scatterPar).asInstanceOf[this.type]
 }
 
-class DRAMCommandTag extends Bundle {
+class DRAMCommandTag(w: Int = 32) extends Bundle {
   // Order is important here; streamId should be at [5:0] so all FPGA targets will see the
   // value on their AXI bus. uid may be truncated on targets with narrower bus.
-  val uid = UInt((32 - 6).W)
+  val uid = UInt((w - 6).W)
   val streamId = UInt(6.W)
 
-  override def cloneType(): this.type = new DRAMCommandTag().asInstanceOf[this.type]
+  override def cloneType(): this.type = new DRAMCommandTag(w).asInstanceOf[this.type]
 }
 
 class DRAMCommand extends Bundle {
@@ -84,7 +84,6 @@ class DRAMCommand extends Bundle {
   val rawAddr = UInt(64.W)
   val isWr = Bool() // 1
   val tag = new DRAMCommandTag
-  val dramReadySeen = Bool()
 
   override def cloneType(): this.type = new DRAMCommand().asInstanceOf[this.type]
 }

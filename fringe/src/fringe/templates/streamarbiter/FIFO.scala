@@ -21,7 +21,7 @@ class FIFOIO[T <: Data](t: T, depth: Int) extends Bundle {
   override def cloneType(): this.type = new FIFOIO(t, depth).asInstanceOf[this.type]
 }
 
-class FIFO[T <: Data](val t: T, val depth: Int, val banked: Boolean = false) extends Module {
+class FIFO[T <: Data](t: T, depth: Int, banked: Boolean = false) extends Module {
   assert(isPow2(depth))
 
   val addrWidth = log2Up(depth)

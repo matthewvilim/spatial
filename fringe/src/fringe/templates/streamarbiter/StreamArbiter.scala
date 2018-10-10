@@ -55,7 +55,7 @@ class StreamArbiter(
     m
   }
 
-  val dramArbiter = Module(new DRAMArbiter(io.dram, numStreams))
+  val dramArbiter = Module(new DRAMArbiter(io.dram, numStreams, burstSizeBytes))
   dramArbiter.io.dram <> io.dram
   dramArbiter.io.app <> Vec(loadControllers.map { _.io.dram } ++ storeControllers.map { _.io.dram })
 
