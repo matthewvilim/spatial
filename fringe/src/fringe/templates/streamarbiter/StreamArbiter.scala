@@ -39,13 +39,13 @@ class StreamArbiter(
   })
 
   val loadControllers = io.app.loads.foreach { load =>
-    val m = Module(new StreamControllerLoad(io.dram, load))
+    val m = Module(new DRAMStreamControllerLoad(io.dram, load))
     m.io.dram <> load
     m
   }
 
   val storeControllers = io.app.stores.foreach { store =>
-    val m = Module(new StreamControllerStore(io.dram, store))
+    val m = Module(new DRAMStreamControllerStore(io.dram, store))
     m.io.dram <> store
     m
   }
