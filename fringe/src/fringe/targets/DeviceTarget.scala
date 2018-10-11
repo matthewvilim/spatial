@@ -44,6 +44,10 @@ trait DeviceTarget {
   // TODO: What is this?
   val external_v = 16
 
+  val depth = 64
+
+  val burstSizeBytes = 64
+
   // TODO: What is this?
   val target_w = 64
 

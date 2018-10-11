@@ -21,10 +21,6 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
   val statusReg = 1   //       Changing these values alone has no effect on the logic below.
 
   // Some constants (mostly MAG-related) that will later become module parameters
-  val v = WORDS_PER_STREAM
-  val numOutstandingBursts = 1024  // Picked arbitrarily
-  val burstSizeBytes = 64
-  val d = 64        // FIFO depth: Controls FIFO sizes for address, size, and wdata
   val regWidth = 64 // Force 64-bit registers
 
   class StatusReg extends Bundle {
@@ -89,15 +85,10 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
     val storeStreams = stores.map{ io.memStreams.stores(_) }
 
     val streamArb = Module(new StreamArbiter(
-      w = DATA_WIDTH,
-      d = d,
-      v = WORDS_PER_STREAM,
       loadStreamInfo = LOAD_STREAMS,
       storeStreamInfo = STORE_STREAMS,
       gatherStreamInfo = GATHER_STREAMS,
       scatterStreamInfo = SCATTER_STREAMS,
-      numOutstandingBursts,
-      burstSizeBytes,
       axiParams,
       debugChannelID == i
     ))

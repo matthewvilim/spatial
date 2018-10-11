@@ -2,11 +2,12 @@ package fringe.templates.streamarbiter
 
 import chisel3._
 import chisel3.util._
+
 import fringe._
+import fringe.globals._
 
 abstract class StreamController(
   info: StreamParInfo,
-  depth: Int,
   dramStream: DRAMStream
 ) extends Module {
   class StreamControllerIO extends Bundle {
@@ -14,16 +15,13 @@ abstract class StreamController(
   }
 
   val io: StreamControllerIO
-  val externalW = globals.target.external_w
-  val externalV = globals.target.external_v
 }
 
 class StreamControllerLoad(
   info: StreamParInfo,
-  depth: Int,
   dramStream: DRAMStream,
   app: LoadStream
-) extends StreamController(info, depth, dramStream) {
+) extends StreamController(info, dramStream) {
 
   class StreamControllerLoadIO extends StreamControllerIO {
     val load = app.cloneType
@@ -31,7 +29,7 @@ class StreamControllerLoad(
 
   val io = IO(new StreamControllerLoadIO)
 
-  val cmd = Module(new FIFO(app.cmd.bits, depth))
+  val cmd = Module(new FIFO(app.cmd.bits, globals.target.depth))
   cmd.io.in.valid := io.load.cmd.valid
   io.load.cmd.ready := cmd.io.in.ready
   cmd.io.out.ready := io.dram.cmd.ready
@@ -42,22 +40,21 @@ class StreamControllerLoad(
   io.dram.cmd.bits.size := cmd.io.out.bits.size
   io.dram.cmd.bits.isWr := false.B
 
-  val rdata = Module(new FIFOWidthConvert(externalW, externalV, info.w, info.v, depth))
-  rdata.io.in.bits := io.dram.rresp.bits.rdata
+  val rdata = Module(new FIFOWidthConvert(EXTERNAL_W, EXTERNAL_V, info.w, info.v, globals.target.depth))
+  rdata.io.in.bits.data := io.dram.rresp.bits.rdata
   rdata.io.in.valid := io.dram.rresp.valid
   io.dram.rresp.ready := rdata.io.in.ready
 
   io.load.rdata.valid := rdata.io.out.valid
-  io.load.rdata.bits := rdata.io.out.bits
+  io.load.rdata.bits := rdata.io.out.bits.data
   rdata.io.out.ready := io.load.rdata.ready
 }
 
 class StreamControllerStore(
   info: StreamParInfo,
-  depth: Int,
   dramStream: DRAMStream,
   app: StoreStream
-) extends StreamController(info, depth, dramStream) {
+) extends StreamController(info, dramStream) {
 
   class StreamControllerStoreIO extends StreamControllerIO {
     val store = app.cloneType
@@ -65,7 +62,7 @@ class StreamControllerStore(
 
   val io = IO(new StreamControllerStoreIO)
 
-  val cmd = Module(new FIFO(app.cmd.bits, depth))
+  val cmd = Module(new FIFO(app.cmd.bits, globals.target.depth))
   cmd.io.in.valid := io.store.cmd.valid
   io.store.cmd.ready := cmd.io.in.ready
   cmd.io.out.ready := io.dram.cmd.ready
@@ -76,7 +73,7 @@ class StreamControllerStore(
   io.dram.cmd.bits.size := cmd.io.out.bits.size
   io.dram.cmd.bits.isWr := true.B
 
-  val wdata = Module(new FIFOWidthConvert(info.w, info.v, externalW, externalV, depth))
+  val wdata = Module(new FIFOWidthConvert(info.w, info.v, EXTERNAL_W, EXTERNAL_V, globals.target.depth))
   wdata.io.in.valid := io.store.wdata.valid
   wdata.io.in.bits.data := io.store.wdata.bits
   wdata.io.in.bits.strobe := io.store.wstrb.bits
@@ -88,7 +85,7 @@ class StreamControllerStore(
   io.dram.wdata.bits.wstrb := wdata.io.out.bits.strobe
   wdata.io.out.ready := io.dram.wdata.ready
 
-  val wresp = Module(new FIFO(Bool(), depth))
+  val wresp = Module(new FIFO(Bool(), globals.target.depth))
   wresp.io.in.valid := io.dram.wresp.valid
   wresp.io.in.bits := io.dram.wresp.valid
   io.dram.wresp.ready := wresp.io.in.ready
@@ -100,10 +97,9 @@ class StreamControllerStore(
 
 class StreamControllerGather(
   info: StreamParInfo,
-  depth: Int,
   dramStream: DRAMStream,
   app: GatherStream
-) extends StreamController(info, depth, dramStream) {
+) extends StreamController(info, dramStream) {
 
   class StreamControllerGatherIO extends StreamControllerIO {
     val store = app.cloneType
@@ -114,10 +110,9 @@ class StreamControllerGather(
 
 class StreamControllerScatter(
   info: StreamParInfo,
-  depth: Int,
   dramStream: DRAMStream,
   app: ScatterStream
-) extends StreamController(info, depth, dramStream) {
+) extends StreamController(info, dramStream) {
 
   class StreamControllerScatterIO extends StreamControllerIO {
     val store = app.cloneType

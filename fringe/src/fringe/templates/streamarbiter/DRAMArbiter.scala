@@ -5,7 +5,7 @@ import chisel3.util._
 
 import fringe._
 
-class DRAMArbiter(dramStream: DRAMStream, streamCount: Int, burstSizeBytes: Int) extends Module {
+class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
   val io = IO(new Bundle {
     val app = Vec(streamCount, Flipped(dramStream.cloneType))
     val dram = dramStream.cloneType
@@ -39,7 +39,7 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int, burstSizeBytes: Int)
   val dramCmdIssue = io.dram.cmd.valid & io.dram.cmd.ready
 
   val maxBurstsPerCmd = 256
-  val maxBytesPerCmd = maxBurstsPerCmd * burstSizeBytes
+  val maxBytesPerCmd = maxBurstsPerCmd * globals.target.burstSizeBytes
 
   //val sizeCounter = Module(new FringeCounter(32))
   //sizeCounter.io.max := appCmd.size
