@@ -40,16 +40,14 @@ class StreamArbiter(
   val loadControllers = loadStreamInfo.zipWithIndex.map { case (s, i) =>
     val load = io.app.loads(i)
     val m = Module(new StreamControllerLoad(s, io.dram, load))
-    m.io.app <> load
-    m.io.dram <> io.dram
+    m.io.load <> load
     m
   }
 
   val storeControllers = storeStreamInfo.zipWithIndex.map { case (s, i) =>
     val store = io.app.stores(i)
     val m = Module(new StreamControllerStore(s, io.dram, store))
-    m.io.app <> store
-    m.io.dram <> io.dram
+    m.io.store <> store
     m
   }
 

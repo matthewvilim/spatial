@@ -70,7 +70,7 @@ class FIFOWidthConvert(val win: Int, val vin: Int, val wout: Int, val vout: Int,
     io.in.ready := fifo.io.in.ready
     io.out.valid := fifo.io.out.valid
     io.out.bits.data := convertVec(fifo.io.out.bits, wout, vout)
-    io.out.ready := bytify(fifoStrb.io.out.bits.reduce(Cat(_,_)), wout*vout/8, win)
+    io.out.bits.strobe := bytify(fifoStrb.io.out.bits.reduce(Cat(_,_)), wout*vout/8, win)
     fifo.io.out.ready := io.out.ready
     fifoStrb.io.out.ready := io.out.ready
   }

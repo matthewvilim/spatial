@@ -29,7 +29,7 @@ class StreamControllerLoad(
 
   val io = IO(new StreamControllerLoadIO)
 
-  val cmd = Module(new FIFO(app.cmd.bits, globals.target.depth))
+  val cmd = Module(new FIFO(app.cmd.bits, globals.target.bufferDepth))
   cmd.io.in.valid := io.load.cmd.valid
   io.load.cmd.ready := cmd.io.in.ready
   cmd.io.out.ready := io.dram.cmd.ready
@@ -40,7 +40,7 @@ class StreamControllerLoad(
   io.dram.cmd.bits.size := cmd.io.out.bits.size
   io.dram.cmd.bits.isWr := false.B
 
-  val rdata = Module(new FIFOWidthConvert(EXTERNAL_W, EXTERNAL_V, info.w, info.v, globals.target.depth))
+  val rdata = Module(new FIFOWidthConvert(EXTERNAL_W, EXTERNAL_V, info.w, info.v, globals.target.bufferDepth))
   rdata.io.in.bits.data := io.dram.rresp.bits.rdata
   rdata.io.in.valid := io.dram.rresp.valid
   io.dram.rresp.ready := rdata.io.in.ready
@@ -62,7 +62,7 @@ class StreamControllerStore(
 
   val io = IO(new StreamControllerStoreIO)
 
-  val cmd = Module(new FIFO(app.cmd.bits, globals.target.depth))
+  val cmd = Module(new FIFO(app.cmd.bits, globals.target.bufferDepth))
   cmd.io.in.valid := io.store.cmd.valid
   io.store.cmd.ready := cmd.io.in.ready
   cmd.io.out.ready := io.dram.cmd.ready
@@ -73,7 +73,7 @@ class StreamControllerStore(
   io.dram.cmd.bits.size := cmd.io.out.bits.size
   io.dram.cmd.bits.isWr := true.B
 
-  val wdata = Module(new FIFOWidthConvert(info.w, info.v, EXTERNAL_W, EXTERNAL_V, globals.target.depth))
+  val wdata = Module(new FIFOWidthConvert(info.w, info.v, EXTERNAL_W, EXTERNAL_V, globals.target.bufferDepth))
   wdata.io.in.valid := io.store.wdata.valid
   wdata.io.in.bits.data := io.store.wdata.bits
   wdata.io.in.bits.strobe := io.store.wstrb.bits
@@ -82,10 +82,10 @@ class StreamControllerStore(
 
   io.dram.wdata.valid := wdata.io.out.valid
   io.dram.wdata.bits.wdata := wdata.io.out.bits.data
-  io.dram.wdata.bits.wstrb := wdata.io.out.bits.strobe
+  io.dram.wdata.bits.wstrb := Vec(List.tabulate(info.v) { i => wdata.io.out.bits.strobe(i) }).reverse
   wdata.io.out.ready := io.dram.wdata.ready
 
-  val wresp = Module(new FIFO(Bool(), globals.target.depth))
+  val wresp = Module(new FIFO(Bool(), globals.target.bufferDepth))
   wresp.io.in.valid := io.dram.wresp.valid
   wresp.io.in.bits := io.dram.wresp.valid
   io.dram.wresp.ready := wresp.io.in.ready
