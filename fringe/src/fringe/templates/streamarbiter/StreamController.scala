@@ -10,7 +10,7 @@ abstract class StreamController(
   dramStream: DRAMStream
 ) extends Module {
   class StreamControllerIO extends Bundle {
-    val dram = dramStream.cloneType()
+    val dram = dramStream.cloneType
   }
 
   val io: StreamControllerIO
@@ -60,7 +60,7 @@ class StreamControllerStore(
 ) extends StreamController(info, depth, dramStream) {
 
   class StreamControllerStoreIO extends StreamControllerIO {
-    val store = app.cloneType()
+    val store = app.cloneType
   }
 
   val io = IO(new StreamControllerStoreIO)
@@ -106,7 +106,7 @@ class StreamControllerGather(
 ) extends StreamController(info, depth, dramStream) {
 
   class StreamControllerGatherIO extends StreamControllerIO {
-    val store = app.cloneType()
+    val store = app.cloneType
   }
 
   val io = IO(new StreamControllerGatherIO)
@@ -120,7 +120,7 @@ class StreamControllerScatter(
 ) extends StreamController(info, depth, dramStream) {
 
   class StreamControllerScatterIO extends StreamControllerIO {
-    val store = app.cloneType()
+    val store = app.cloneType
   }
 
   val io = IO(new StreamControllerScatterIO)

@@ -7,8 +7,8 @@ import fringe._
 
 class DRAMArbiter(dramStream: DRAMStream, streamCount: Int, burstSizeBytes: Int) extends Module {
   val io = IO(new Bundle {
-    val app = Vec(streamCount, Flipped(dramStream.cloneType()))
-    val dram = dramStream.cloneType()
+    val app = Vec(streamCount, Flipped(dramStream.cloneType))
+    val dram = dramStream.cloneType
   })
 
   val appValids = io.app.map { _.cmd.valid }

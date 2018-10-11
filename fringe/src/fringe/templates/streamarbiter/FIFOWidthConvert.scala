@@ -13,11 +13,11 @@ import chisel3.util._
  * @param d: FIFO depth
  */
 class FIFOWidthConvert(val win: Int, val vin: Int, val wout: Int, val vout: Int, val d: Int) extends Module {
-  class DataStrobe(w: Int, v: Int, strobe: Int) extends Bundle {
+  class DataStrobe(w: Int, v: Int, s: Int) extends Bundle {
     val data = Vec(v, Bits(w.W))
-    val strobe = UInt(strobe.W)
+    val strobe = UInt(s.W)
 
-    override def cloneType: this.type = new DataStrobe(w, v, strobe).asInstanceOf[this.type]
+    override def cloneType: this.type = new DataStrobe(w, v, s).asInstanceOf[this.type]
   }
 
   val io = IO(new Bundle {
