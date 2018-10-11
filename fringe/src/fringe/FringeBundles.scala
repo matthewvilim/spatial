@@ -114,6 +114,19 @@ class DRAMStream(w: Int, v: Int) extends Bundle {
   override def cloneType(): this.type = new DRAMStream(w, v).asInstanceOf[this.type]
 }
 
+class DRAMAddress(val addrWidth: Int = 64) extends Bundle {
+  val addr = UInt(addrWidth.W)
+
+	val burstSize = globals.target.burstSizeBytes
+  def burstTag = addr(addr.getWidth - 1, log2Ceil(burstSize))
+  def burstOffset = addr(log2Ceil(burstSize) - 1, 0)
+  def burstAddr = Cat(burstTag, 0.U(log2Ceil(burstSize).W))
+
+  override def cloneType(): this.type = {
+    new DRAMAddress(addrWidth).asInstanceOf[this.type]
+  }
+}
+
 class GenericStreams(streamIns: List[StreamParInfo], streamOuts: List[StreamParInfo]) extends Bundle {
   val ins = HVec.tabulate(streamIns.size) { i => StreamIn(streamIns(i)) }
   val outs = HVec.tabulate(streamOuts.size) { i => StreamOut(streamOuts(i)) }

@@ -3,12 +3,11 @@ package fringe.templates.streamarbiter
 import chisel3._
 import chisel3.util._
 import fringe.templates.memory._
-import fringe.utils.log2Up
 
 class FIFOIO[T <: Data](t: T, depth: Int) extends Bundle {
   val in = Flipped(Decoupled(t.cloneType))
   val out = Decoupled(t.cloneType)
-  val count = Output(UInt(log2Up(depth + 1).W))
+  val count = Output(UInt(log2Ceil(depth + 1).W))
 
   class Bank[T <: Data] extends Bundle {
     val wdata = Flipped(Valid(t.cloneType))
@@ -24,7 +23,7 @@ class FIFOIO[T <: Data](t: T, depth: Int) extends Bundle {
 class FIFO[T <: Data](t: T, depth: Int, banked: Boolean = false) extends Module {
   assert(isPow2(depth))
 
-  val addrWidth = log2Up(depth)
+  val addrWidth = log2Ceil(depth)
 
   val io = IO(new FIFOIO(t, depth))
 
