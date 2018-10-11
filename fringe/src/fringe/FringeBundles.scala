@@ -42,7 +42,7 @@ class GatherStream(p: StreamParInfo) extends Bundle {
   val rdata = Decoupled(Vec(p.v, UInt(p.w.W)))
 
   override def cloneType(): this.type = {
-    new LoadStream(p).asInstanceOf[this.type]
+    new GatherStream(p).asInstanceOf[this.type]
   }
 }
 
@@ -52,7 +52,7 @@ class ScatterStream(p: StreamParInfo) extends Bundle {
   val wstrb = Flipped(Decoupled(UInt(p.v.W)))
   val wresp = Decoupled(Bool())
 
-  override def cloneType(): this.type = new StoreStream(p).asInstanceOf[this.type]
+  override def cloneType(): this.type = new ScatterStream(p).asInstanceOf[this.type]
 }
 
 class AppStreams(loadPar: List[StreamParInfo], storePar: List[StreamParInfo],
