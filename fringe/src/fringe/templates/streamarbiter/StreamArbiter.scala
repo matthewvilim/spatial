@@ -51,8 +51,27 @@ class StreamArbiter(
     m
   }
 
+  val gatherControllers = gatherStreamInfo.zipWithIndex.map { case (s, i) =>
+    val gather = io.app.gathers(i)
+    val m = Module(new StreamControllerGather(s, io.dram, gather))
+    m.io.gather <> gather
+    m
+  }
+
+  val scatterControllers = scatterStreamInfo.zipWithIndex.map { case (s, i) =>
+    val scatter = io.app.scatters(i)
+    val m = Module(new StreamControllerScatter(s, io.dram, scatter))
+    m.io.scatter <> scatter
+    m
+  }
+
   val dramArbiter = Module(new DRAMArbiter(io.dram, numStreams))
   dramArbiter.io.dram <> io.dram
-  dramArbiter.io.app <> Vec(loadControllers.map { _.io.dram } ++ storeControllers.map { _.io.dram })
+  dramArbiter.io.app <> Vec(
+    loadControllers.map { _.io.dram } ++
+    gatherControllers.map { _.io.dram } ++
+    storeControllers.map { _.io.dram } ++
+    scatterControllers.map { _.io.dram }
+  )
 
 }

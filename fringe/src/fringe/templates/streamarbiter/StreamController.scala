@@ -82,7 +82,7 @@ class StreamControllerStore(
 
   io.dram.wdata.valid := wdata.io.out.valid
   io.dram.wdata.bits.wdata := wdata.io.out.bits.data
-  io.dram.wdata.bits.wstrb := Vec(List.tabulate(info.v) { i => wdata.io.out.bits.strobe(i) }).reverse
+  io.dram.wdata.bits.wstrb := Vec(wdata.io.out.bits.strobe.toBools).reverse
   wdata.io.out.ready := io.dram.wdata.ready
 
   val wresp = Module(new FIFO(Bool(), globals.target.bufferDepth))
@@ -102,7 +102,7 @@ class StreamControllerGather(
 ) extends StreamController(info, dramStream) {
 
   class StreamControllerGatherIO extends StreamControllerIO {
-    val store = app.cloneType
+    val gather = app.cloneType
   }
 
   val io = IO(new StreamControllerGatherIO)
@@ -115,7 +115,7 @@ class StreamControllerScatter(
 ) extends StreamController(info, dramStream) {
 
   class StreamControllerScatterIO extends StreamControllerIO {
-    val store = app.cloneType
+    val scatter = app.cloneType
   }
 
   val io = IO(new StreamControllerScatterIO)
