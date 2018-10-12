@@ -12,13 +12,11 @@ class Counter(val w: Int) extends Module {
     val enable = Input(Bool())
     val stride = Input(UInt(w.W))
     val out = Output(UInt(w.W))
-    val done = Output(Bool())
   })
 
   val count = RegInit(0.U)
 
   val newCount = count + io.stride
-  val overflow = newCount < count
 
   when(io.reset) {
     count := 0.U
@@ -27,7 +25,6 @@ class Counter(val w: Int) extends Module {
   }
 
   io.out := count
-  io.done := io.enable & overflow
 }
 
 class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {

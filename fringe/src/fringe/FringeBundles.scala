@@ -131,9 +131,9 @@ class DRAMAddress(val addrWidth: Int) extends Bundle {
 
 object DRAMAddress {
   def apply(addr: UInt) = {
-    val a = new DRAMAddress(addr.getWidth)
-    a.bits := addr
-    a
+    val dramAddr = Wire(new DRAMAddress(addr.getWidth))
+    dramAddr.bits := addr
+    dramAddr
   }
 }
 
