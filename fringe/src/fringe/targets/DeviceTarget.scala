@@ -48,6 +48,8 @@ trait DeviceTarget {
 
   val burstSizeBytes = 64
 
+  val maxBurstsPerCmd = 256
+
   // TODO: What is this?
   val target_w = 64
 

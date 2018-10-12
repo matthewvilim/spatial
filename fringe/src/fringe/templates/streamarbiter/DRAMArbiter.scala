@@ -4,6 +4,32 @@ import chisel3._
 import chisel3.util._
 
 import fringe._
+import fringe.globals._
+
+class CommandCounter(val w: Int) extends Module {
+  val io = IO(new Bundle {
+    val init = Input(UInt(w.W))
+    val enable = Input(Bool())
+    val stride = Input(UInt(w.W))
+    val out = Output(UInt(w.W))
+    val done = Output(Bool())
+  })
+
+  val valid = RegInit(false.B)
+  val count = Reg(UInt(w.W))
+
+  val currentCount = Mux(valid, count, io.init)
+  val newCount = currentCount - io.stride
+  val underflow = newCount >= currentCount
+
+  when(io.enable) {
+    valid := !underflow
+    count := newCount
+  }
+
+  io.out := count
+  io.done := io.enable & underflow
+}
 
 class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
   val io = IO(new Bundle {
@@ -15,8 +41,12 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
   val appId = PriorityEncoder(appValids)
   val appDecoder = UIntToOH(appId)
   val appStream = io.app(appId)
+
+  val cmdSizeCounter = Module(new CommandCounter(32))
+  val wrespCounter = Module(new CommandCounter(32))
+
   io.app.zipWithIndex.foreach { case (app, i) =>
-    app.cmd.ready := io.dram.cmd.ready & appDecoder(i)
+    app.cmd.ready := cmdSizeCounter.io.done & appDecoder(i)
     app.wdata.ready := io.dram.wdata.ready & appDecoder(i)
 
     app.rresp.valid := io.dram.rresp.valid & io.dram.rresp.bits.tag.streamId === i.U
@@ -38,12 +68,10 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
 
   val dramCmdIssue = io.dram.cmd.valid & io.dram.cmd.ready
 
-  val sizeCounter = Module(new FringeCounter(32))
-  sizeCounter.io.max := appCmd.size
-  val maxBurstsPerCmd = 256
-  val maxBytesPerCmd = maxBurstsPerCmd * globals.target.burstSizeBytes
-  sizeCounter.io.stride := maxBytesPerCmd.U
+  cmdSizeCounter.io.init := appStream.cmd.bits.size
+  cmdSizeCounter.io.enable := dramCmdIssue
+  cmdSizeCounter.io.stride := target.maxBurstsPerCmd.U
 
-  val cmdAddr = Wire(new DRAMAddress)
-  cmdAddr.addr := appStream.cmd.bits.addr + sizeCounter.io.out
+  io.dram.cmd.bits.size := cmdSizeCounter.io.out
+
 }

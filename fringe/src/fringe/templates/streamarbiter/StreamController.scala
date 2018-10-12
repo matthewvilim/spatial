@@ -15,6 +15,11 @@ abstract class StreamController(
   }
 
   val io: StreamControllerIO
+
+  // app sends bytes but DRAM stream expects burst count
+  def sizeBytesToSizeBurst(size: UInt) = {
+    size >> log2Ceil(target.burstSizeBytes)
+  }
 }
 
 class StreamControllerLoad(
@@ -29,7 +34,7 @@ class StreamControllerLoad(
 
   val io = IO(new StreamControllerLoadIO)
 
-  val cmd = Module(new FIFO(app.cmd.bits, globals.target.bufferDepth))
+  val cmd = Module(new FIFO(app.cmd.bits, target.bufferDepth))
   cmd.io.in.valid := io.load.cmd.valid
   io.load.cmd.ready := cmd.io.in.ready
   cmd.io.out.ready := io.dram.cmd.ready
@@ -37,10 +42,10 @@ class StreamControllerLoad(
   
   io.dram.cmd.bits.addr := cmd.io.out.bits.addr
   io.dram.cmd.bits.rawAddr := cmd.io.out.bits.addr
-  io.dram.cmd.bits.size := cmd.io.out.bits.size
+  io.dram.cmd.bits.size := sizeBytesToSizeBurst(cmd.io.out.bits.size)
   io.dram.cmd.bits.isWr := false.B
 
-  val rdata = Module(new FIFOWidthConvert(EXTERNAL_W, EXTERNAL_V, info.w, info.v, globals.target.bufferDepth))
+  val rdata = Module(new FIFOWidthConvert(EXTERNAL_W, EXTERNAL_V, info.w, info.v, target.bufferDepth))
   rdata.io.in.bits.data := io.dram.rresp.bits.rdata
   rdata.io.in.valid := io.dram.rresp.valid
   io.dram.rresp.ready := rdata.io.in.ready
@@ -62,7 +67,7 @@ class StreamControllerStore(
 
   val io = IO(new StreamControllerStoreIO)
 
-  val cmd = Module(new FIFO(app.cmd.bits, globals.target.bufferDepth))
+  val cmd = Module(new FIFO(app.cmd.bits, target.bufferDepth))
   cmd.io.in.valid := io.store.cmd.valid
   io.store.cmd.ready := cmd.io.in.ready
   cmd.io.out.ready := io.dram.cmd.ready
@@ -70,10 +75,10 @@ class StreamControllerStore(
   
   io.dram.cmd.bits.addr := cmd.io.out.bits.addr
   io.dram.cmd.bits.rawAddr := cmd.io.out.bits.addr
-  io.dram.cmd.bits.size := cmd.io.out.bits.size
+  io.dram.cmd.bits.size := sizeBytesToSizeBurst(cmd.io.out.bits.size)
   io.dram.cmd.bits.isWr := true.B
 
-  val wdata = Module(new FIFOWidthConvert(info.w, info.v, EXTERNAL_W, EXTERNAL_V, globals.target.bufferDepth))
+  val wdata = Module(new FIFOWidthConvert(info.w, info.v, EXTERNAL_W, EXTERNAL_V, target.bufferDepth))
   wdata.io.in.valid := io.store.wdata.valid
   wdata.io.in.bits.data := io.store.wdata.bits
   wdata.io.in.bits.strobe := io.store.wstrb.bits
@@ -85,7 +90,7 @@ class StreamControllerStore(
   io.dram.wdata.bits.wstrb := Vec(wdata.io.out.bits.strobe.toBools).reverse
   wdata.io.out.ready := io.dram.wdata.ready
 
-  val wresp = Module(new FIFO(Bool(), globals.target.bufferDepth))
+  val wresp = Module(new FIFO(Bool(), target.bufferDepth))
   wresp.io.in.valid := io.dram.wresp.valid
   wresp.io.in.bits := io.dram.wresp.valid
   io.dram.wresp.ready := wresp.io.in.ready

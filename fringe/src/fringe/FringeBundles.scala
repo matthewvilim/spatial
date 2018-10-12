@@ -114,7 +114,7 @@ class DRAMStream(w: Int, v: Int) extends Bundle {
   override def cloneType(): this.type = new DRAMStream(w, v).asInstanceOf[this.type]
 }
 
-class DRAMAddress(val addrWidth: Int = 64) extends Bundle {
+class DRAMAddress(val addrWidth: Int) extends Bundle {
   val addr = UInt(addrWidth.W)
 
 	val burstSize = globals.target.burstSizeBytes
@@ -124,6 +124,14 @@ class DRAMAddress(val addrWidth: Int = 64) extends Bundle {
 
   override def cloneType(): this.type = {
     new DRAMAddress(addrWidth).asInstanceOf[this.type]
+  }
+}
+
+object DRAMAddress {
+  def apply(addr: UInt) = {
+    val a = new DRAMAddress(addr.getWidth)
+    a := addr
+    a
   }
 }
 
