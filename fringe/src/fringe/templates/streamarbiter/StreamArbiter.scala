@@ -66,6 +66,7 @@ class StreamArbiter(
   }
 
   val dramArbiter = Module(new DRAMArbiter(io.dram, numStreams))
+  dramArbiter.io.enable := io.enable
   dramArbiter.io.dram <> io.dram
   dramArbiter.io.app <> Vec(
     loadControllers.map { _.io.dram } ++

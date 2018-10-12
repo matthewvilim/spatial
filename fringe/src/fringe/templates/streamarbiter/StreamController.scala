@@ -85,7 +85,7 @@ class StreamControllerStore(
   io.store.wdata.ready := wdata.io.in.ready
   io.store.wstrb.ready := wdata.io.in.ready
 
-  io.dram.wdata.valid := wdata.io.out.valid
+  io.dram.wdata.valid := cmd.io.out.valid & wdata.io.out.valid
   io.dram.wdata.bits.wdata := wdata.io.out.bits.data
   io.dram.wdata.bits.wstrb := Vec(wdata.io.out.bits.strobe.toBools).reverse
   wdata.io.out.ready := io.dram.wdata.ready
