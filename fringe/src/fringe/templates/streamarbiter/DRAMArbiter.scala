@@ -43,7 +43,7 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
 
   // split commands if they're larger than AXI supports
   val cmdSizeCounter = Module(new Counter(32))
-  // track wdata issues so we know when to send wlast
+  // track wdata issues within a split command so we know when to send wlast
   val wdataCounter = Module(new Counter(32))
   // issue write commands only once even if we need to issue multiple wdata
   val writeIssued = RegInit(false.B)
@@ -55,6 +55,7 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
 
   val cmdSizeRemaining = appStream.cmd.bits.size - cmdSizeCounter.io.out
   val maxSize = target.maxBurstsPerCmd.U
+  // this is the last command within a split command
   val lastCmd = (cmdSizeRemaining < maxSize)
   val cmdSize = Mux(lastCmd, cmdSizeRemaining, maxSize)
   val wlast = dramWriteIssue & (wdataCounter.io.next === cmdSize)

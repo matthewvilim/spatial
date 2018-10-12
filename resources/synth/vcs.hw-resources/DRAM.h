@@ -217,7 +217,7 @@ std::deque<WData*> wdataQ;
 std::deque<DRAMRequest*> wrequestQ;
 
 // Internal book-keeping data structures
-std::map<struct AddrTag, DRAMRequest*> addrToReqMap;
+std::map<struct AddrTag, std::deque<DRAMRequest*>> addrToReqMap;
 
 uint32_t getWordOffset(uint64_t addr) {
   return (addr & (burstSizeBytes - 1)) >> 2;   // TODO: Use parameters above!
@@ -510,11 +510,15 @@ public:
 
     // Find transaction, mark it as done, remove entry from map
     struct AddrTag at(addr, cmdTag);
-    std::map<struct AddrTag, DRAMRequest*>::iterator it = addrToReqMap.find(at);
+    auto it = addrToReqMap.find(at);
     ASSERT(it != addrToReqMap.end(), "address/tag tuple (%lx, %lx) not found in addrToReqMap!", addr, cmdTag.tag);
-    DRAMRequest* req = it->second;
+    auto &reqQueue = it->second;
+    DRAMRequest* req = reqQueue.front();
     req->completed = true;
-    addrToReqMap.erase(at);
+    reqQueue.pop_front();
+    if (reqQueue.empty()) {
+      addrToReqMap.erase(at);
+    }
   }
 };
 
@@ -870,7 +874,12 @@ extern "C" {
         DRAMRequest *req = reqs[i];
         struct AddrTag at(req->addr, req->tag);
 
-        addrToReqMap[at] = req;
+        if (addrToReqMap.find(at) == addrToReqMap.end()) {
+          std::deque<DRAMRequest *> reqQueue { req };
+          addrToReqMap[at] = reqQueue;
+        } else {
+          addrToReqMap[at].push_back(req);
+        }
         skipIssue = false;
 
         // TODO: Re-examine gather-scatter flow
