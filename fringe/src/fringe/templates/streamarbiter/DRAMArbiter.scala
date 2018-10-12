@@ -6,7 +6,7 @@ import chisel3.util._
 import fringe._
 import fringe.globals._
 
-class CommandCounter(val w: Int) extends Module {
+class Counter(val w: Int) extends Module {
   val io = IO(new Bundle {
     val reset = Input(Bool())
     val enable = Input(Bool())
@@ -42,12 +42,34 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
   val appDecoder = UIntToOH(appId)
   val appStream = io.app(appId)
 
-  val cmdSizeCounter = Module(new CommandCounter(32))
-  val wdataCounter = Module(new CommandCounter(32))
-  val wrespCounter = Module(new CommandCounter(32))
+  val cmdSizeCounter = Module(new Counter(32))
+  val wdataCounter = Module(new Counter(32))
 
+  val dramCmdIssue = io.enable & io.dram.cmd.valid & io.dram.cmd.ready
+  val dramWriteIssue = io.enable & io.dram.wdata.valid & io.dram.wdata.ready
+
+  val writeCmd = appStream.cmd.bits.isWr
+
+  val cmdSizeRemaining = appStream.cmd.bits.size - cmdSizeCounter.io.out
+  val maxSize = target.maxBurstsPerCmd.U
+  val wlast = (wdataCounter.io.out === io.dram.cmd.bits.size) & dramWriteIssue
+  val appCmdDone = Mux(writeCmd, wlast, true.B) & (cmdSizeRemaining < maxSize)
+  io.dram.cmd.bits.size := Mux(appCmdDone, cmdSizeRemaining, maxSize)
+
+  // tag only the last burst if we split the write command
+  io.dram.cmd.bits.tag.wresp := writeCmd & appCmdDone
+
+  cmdSizeCounter.io.reset := appCmdDone
+  cmdSizeCounter.io.enable := dramCmdIssue
+  cmdSizeCounter.io.stride := target.maxBurstsPerCmd.U
+
+  wdataCounter.io.reset := wlast
+  wdataCounter.io.enable := dramWriteIssue
+  wdataCounter.io.stride := 1.U
+
+  io.dram.wdata.bits.wlast := wlast
   io.app.zipWithIndex.foreach { case (app, i) =>
-    app.cmd.ready := cmdDone & appDecoder(i)
+    app.cmd.ready := appCmdDone & appDecoder(i)
     app.wdata.ready := io.dram.wdata.ready & appDecoder(i)
 
     app.rresp.valid := io.dram.rresp.valid & io.dram.rresp.bits.tag.streamId === i.U
@@ -67,22 +89,4 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
   io.dram.rresp.ready := Vec(io.app.map { _.rresp.ready })(io.dram.rresp.bits.tag.streamId)
   io.dram.wresp.ready := Vec(io.app.map { _.wresp.ready })(io.dram.wresp.bits.tag.streamId)
 
-  val dramCmdIssue = io.enable & io.dram.cmd.valid & io.dram.cmd.ready
-  val dramWriteIssue = io.enable & io.dram.wdata.valid & io.dram.wdata.ready
-
-  val cmdSizeRemaining = appStream.cmd.bits.size - cmdSizeCounter.io.out
-  val maxSize = target.maxBurstsPerCmd.U
-  val cmdDone = Mux(appStream.cmd.bits.isWr, wlast, true.B) & (cmdSizeRemaining < maxSize)
-  io.dram.cmd.bits.size := Mux(cmdDone, cmdSizeRemaining, maxSize)
-
-  cmdSizeCounter.io.reset := cmdDone
-  cmdSizeCounter.io.enable := dramCmdIssue
-  cmdSizeCounter.io.stride := target.maxBurstsPerCmd.U
-
-  val wlast = (wdataCounter.io.out === io.dram.cmd.bits.size) & dramWriteIssue
-  wdataCounter.io.reset := wlast
-  wdataCounter.io.enable := dramWriteIssue
-  wdataCounter.io.stride := 1.U
-
-  io.dram.wdata.bits.wlast := wlast
 }

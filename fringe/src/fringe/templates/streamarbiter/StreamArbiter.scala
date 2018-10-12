@@ -7,6 +7,9 @@ import fringe._
 import fringe.globals._
 import fringe.templates.axi4._
 
+import java.io.{File, PrintWriter}
+import scala.collection.mutable.ListBuffer
+
 class StreamArbiter(
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
@@ -75,4 +78,22 @@ class StreamArbiter(
     scatterControllers.map { _.io.dram }
   )
 
+  if (isDebugChannel) {
+		val signalLabels = ListBuffer[String]()
+
+    // Print all debugging signals into a header file
+    val debugFileName = "cpp/generated_debugRegs.h"
+    val debugPW = new PrintWriter(new File(debugFileName))
+    debugPW.println(s"""
+  #ifndef __DEBUG_REGS_H__
+  #define __DEBUG_REGS_H__
+  #define NUM_DEBUG_SIGNALS ${signalLabels.size}
+  const char *signalLabels[] = {
+  """)
+
+    debugPW.println(signalLabels.map { l => s"""\"${l}\"""" }.mkString(", "))
+    debugPW.println("};")
+    debugPW.println("#endif // __DEBUG_REGS_H__")
+    debugPW.close()
+  }
 }

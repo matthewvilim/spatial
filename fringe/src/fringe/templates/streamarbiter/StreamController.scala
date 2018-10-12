@@ -36,6 +36,7 @@ class StreamControllerLoad(
 
   val cmd = Module(new FIFO(app.cmd.bits, target.bufferDepth))
   cmd.io.in.valid := io.load.cmd.valid
+  cmd.io.in.bits := io.load.cmd.bits
   io.load.cmd.ready := cmd.io.in.ready
   cmd.io.out.ready := io.dram.cmd.ready
   io.dram.cmd.valid := cmd.io.out.valid
@@ -69,6 +70,7 @@ class StreamControllerStore(
 
   val cmd = Module(new FIFO(app.cmd.bits, target.bufferDepth))
   cmd.io.in.valid := io.store.cmd.valid
+  cmd.io.in.bits := io.store.cmd.bits
   io.store.cmd.ready := cmd.io.in.ready
   cmd.io.out.ready := io.dram.cmd.ready
   io.dram.cmd.valid := cmd.io.out.valid

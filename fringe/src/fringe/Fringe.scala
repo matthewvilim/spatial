@@ -75,7 +75,7 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
   println(s"[Fringe] loadStreamInfo: $LOAD_STREAMS, storeStreamInfo: $STORE_STREAMS")
   val assignment: List[List[Int]] = channelAssignment.assignments
   val debugChannelID = 0
-  val mags = List.tabulate(NUM_CHANNELS){ i =>
+  val streamArbs = List.tabulate(NUM_CHANNELS){ i =>
     val channelAssignment = assignment(i)
     val (loads, absStores) = channelAssignment.partition(_ < NUM_LOAD_STREAMS)
     val stores = absStores.map{ _ - NUM_LOAD_STREAMS } // Compute indices into stores array
@@ -104,7 +104,7 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
   val hostHeapReq = heap.io.host.req(0)
   val hostHeapResp = heap.io.host.resp(0)
 
-  val numDebugs = mags(debugChannelID).numDebugs
+  val numDebugs = streamArbs(debugChannelID).numDebugs
   val numRegs = NUM_ARGS + 2 - NUM_ARG_INS + numDebugs // (command, status registers)
 
   // Scalar, command, and status register file
@@ -167,7 +167,7 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
       argOutReg.valid := io.argOuts(i-1).valid
     }
     else { // MAG debug regs
-      argOutReg.bits := mags(debugChannelID).io.debugSignals(i-numArgOuts-1)
+      argOutReg.bits := streamArbs(debugChannelID).io.debugSignals(i-numArgOuts-1)
       argOutReg.valid := 1.U
     }
   }
@@ -175,21 +175,21 @@ class Fringe(blockingDRAMIssue: Boolean, axiParams: AXI4BundleParameters) extend
   io.argOutLoopbacks := regs.io.argOutLoopbacks
 
   // Memory address generator
-  mags.foreach { _.io.reset := localReset }
-  mags.foreach { _.reset := localReset }
+  streamArbs.foreach { _.io.reset := localReset }
+  streamArbs.foreach { _.reset := localReset }
   if (target.isInstanceOf[targets.aws.AWS_F1]) {
-    mags.foreach { _.io.enable := io.aws_top_enable }
+    streamArbs.foreach { _.io.enable := io.aws_top_enable }
   }
   else {
-    mags.foreach { _.io.enable := localEnable }
+    streamArbs.foreach { _.io.enable := localEnable }
   }
 
-  mags.zip(io.dram) foreach { case (streamarb, d) => streamarb.io.dram <> d }
+  streamArbs.zip(io.dram) foreach { case (streamarb, d) => streamarb.io.dram <> d }
 
-  mags(debugChannelID).io.TOP_AXI <> io.TOP_AXI
-  mags(debugChannelID).io.DWIDTH_AXI <> io.DWIDTH_AXI
-  mags(debugChannelID).io.PROTOCOL_AXI <> io.PROTOCOL_AXI
-  mags(debugChannelID).io.CLOCKCONVERT_AXI <> io.CLOCKCONVERT_AXI
+  streamArbs(debugChannelID).io.TOP_AXI <> io.TOP_AXI
+  streamArbs(debugChannelID).io.DWIDTH_AXI <> io.DWIDTH_AXI
+  streamArbs(debugChannelID).io.PROTOCOL_AXI <> io.PROTOCOL_AXI
+  streamArbs(debugChannelID).io.CLOCKCONVERT_AXI <> io.CLOCKCONVERT_AXI
 
   val alloc = curStatus.allocDealloc === 3.U
   val dealloc = curStatus.allocDealloc === 4.U

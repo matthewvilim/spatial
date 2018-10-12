@@ -69,6 +69,7 @@ class DRAMCommandTag(w: Int = 32) extends Bundle {
   // Order is important here; streamId should be at [5:0] so all FPGA targets will see the
   // value on their AXI bus. uid may be truncated on targets with narrower bus.
   val uid = UInt((w - 6).W)
+  val wresp = Bool()
   val streamId = UInt(6.W)
 
   override def cloneType(): this.type = new DRAMCommandTag(w).asInstanceOf[this.type]
