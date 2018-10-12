@@ -69,7 +69,8 @@ class DRAMCommandTag(w: Int = 32) extends Bundle {
   // Order is important here; streamId should be at [5:0] so all FPGA targets will see the
   // value on their AXI bus. uid may be truncated on targets with narrower bus.
   val uid = UInt((w - 6).W)
-  val wresp = Bool()
+  // if the AXI command gets split, tag the last command here
+  val cmdSplitLast = Bool()
   val streamId = UInt(6.W)
 
   override def cloneType(): this.type = new DRAMCommandTag(w).asInstanceOf[this.type]
@@ -116,11 +117,11 @@ class DRAMStream(w: Int, v: Int) extends Bundle {
 }
 
 class DRAMAddress(val addrWidth: Int) extends Bundle {
-  val addr = UInt(addrWidth.W)
+  val bits = UInt(addrWidth.W)
 
 	val burstSize = globals.target.burstSizeBytes
-  def burstTag = addr(addr.getWidth - 1, log2Ceil(burstSize))
-  def burstOffset = addr(log2Ceil(burstSize) - 1, 0)
+  def burstTag = bits(bits.getWidth - 1, log2Ceil(burstSize))
+  def burstOffset = bits(log2Ceil(burstSize) - 1, 0)
   def burstAddr = Cat(burstTag, 0.U(log2Ceil(burstSize).W))
 
   override def cloneType(): this.type = {
@@ -131,7 +132,7 @@ class DRAMAddress(val addrWidth: Int) extends Bundle {
 object DRAMAddress {
   def apply(addr: UInt) = {
     val a = new DRAMAddress(addr.getWidth)
-    a := addr
+    a.bits := addr
     a
   }
 }

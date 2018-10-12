@@ -16,7 +16,7 @@ abstract class StreamController(
 
   val io: StreamControllerIO
 
-  // app sends bytes but DRAM stream expects burst count
+  // app stream sends bytes but DRAM stream expects bursts
   def sizeBytesToSizeBurst(size: UInt) = {
     size >> log2Ceil(target.burstSizeBytes)
   }

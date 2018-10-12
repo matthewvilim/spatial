@@ -15,7 +15,7 @@ class Counter(val w: Int) extends Module {
     val done = Output(Bool())
   })
 
-  val count = Reg(UInt(w.W))
+  val count = RegInit(0.U)
 
   val newCount = count + io.stride
   val overflow = newCount < count
@@ -42,7 +42,9 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
   val appDecoder = UIntToOH(appId)
   val appStream = io.app(appId)
 
+  // split commands if they're larger than AXI supports
   val cmdSizeCounter = Module(new Counter(32))
+  // track wdata issues so we know when to send wlast
   val wdataCounter = Module(new Counter(32))
 
   val dramCmdIssue = io.enable & io.dram.cmd.valid & io.dram.cmd.ready
@@ -52,12 +54,20 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
 
   val cmdSizeRemaining = appStream.cmd.bits.size - cmdSizeCounter.io.out
   val maxSize = target.maxBurstsPerCmd.U
-  val wlast = (wdataCounter.io.out === io.dram.cmd.bits.size) & dramWriteIssue
+  val wlast = (wdataCounter.io.out === appStream.cmd.bits.size) & dramWriteIssue
+  // keep write commands queued until we've issued wlast
   val appCmdDone = Mux(writeCmd, wlast, true.B) & (cmdSizeRemaining < maxSize)
-  io.dram.cmd.bits.size := Mux(appCmdDone, cmdSizeRemaining, maxSize)
 
+  io.dram.cmd.valid := appStream.cmd.valid
+  io.dram.cmd.bits.size := Mux(appCmdDone, cmdSizeRemaining, maxSize)
+  val cmdAddr = DRAMAddress(appStream.cmd.bits.addr + cmdSizeCounter.io.out)
+  io.dram.cmd.bits.addr := cmdAddr.burstAddr
+  io.dram.cmd.bits.rawAddr := cmdAddr.bits
+  io.dram.cmd.bits.isWr := appStream.cmd.bits.isWr
+  io.dram.cmd.bits.tag.uid := appStream.cmd.bits.tag.uid
+  io.dram.cmd.bits.tag.streamId := appId
   // tag only the last burst if we split the write command
-  io.dram.cmd.bits.tag.wresp := writeCmd & appCmdDone
+  io.dram.cmd.bits.tag.cmdSplitLast := writeCmd & appCmdDone
 
   cmdSizeCounter.io.reset := appCmdDone
   cmdSizeCounter.io.enable := dramCmdIssue
@@ -75,18 +85,21 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
     app.rresp.valid := io.dram.rresp.valid & io.dram.rresp.bits.tag.streamId === i.U
     app.rresp.bits := io.dram.rresp.bits
 
-    app.wresp.valid := io.dram.wresp.valid & io.dram.wresp.bits.tag.streamId === i.U
+    // only pass on the last wresp to the app if we split the write command
+    app.wresp.valid := Mux(io.dram.wresp.bits.tag.cmdSplitLast, io.dram.wresp.valid, false.B) &
+                       (io.dram.wresp.bits.tag.streamId === i.U)
     app.wresp.bits := io.dram.wresp.bits
   }
-
-  io.dram.cmd.valid := appStream.cmd.valid
-  io.dram.cmd.bits := appStream.cmd.bits
-  io.dram.cmd.bits.tag.streamId := appId
 
   io.dram.wdata.valid := appStream.wdata.valid
   io.dram.wdata.bits := appStream.wdata.bits
 
   io.dram.rresp.ready := Vec(io.app.map { _.rresp.ready })(io.dram.rresp.bits.tag.streamId)
-  io.dram.wresp.ready := Vec(io.app.map { _.wresp.ready })(io.dram.wresp.bits.tag.streamId)
+  // only wait for app acknowledgement on the last wresp if we split the write command
+  io.dram.wresp.ready := Mux(
+    io.dram.wresp.bits.tag.cmdSplitLast,
+    Vec(io.app.map { _.wresp.ready })(io.dram.wresp.bits.tag.streamId),
+    true.B
+  )
 
 }
