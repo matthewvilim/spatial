@@ -65,23 +65,14 @@ class AppStreams(loadPar: List[StreamParInfo], storePar: List[StreamParInfo],
   override def cloneType(): this.type = new AppStreams(loadPar, storePar, gatherPar, scatterPar).asInstanceOf[this.type]
 }
 
-class DRAMCommandTag(w: Int = 32) extends Bundle {
-  // Order is important here; streamId should be at [5:0] so all FPGA targets will see the
-  // value on their AXI bus. uid may be truncated on targets with narrower bus.
-  val uid = UInt((w - 6).W)
-  // if the AXI command gets split, tag the last command here
-  val cmdSplitLast = Bool()
-  val streamId = UInt(6.W)
-
-  override def cloneType(): this.type = new DRAMCommandTag(w).asInstanceOf[this.type]
-}
-
 class DRAMCommand extends Bundle {
   val addr = UInt(64.W)
   val size = UInt(32.W)
   val rawAddr = UInt(64.W)
   val isWr = Bool()
-  val tag = new DRAMCommandTag
+  val tag = UInt(32.W)
+
+  def getTag = tag.asTypeOf(new DRAMTag)
 
   override def cloneType(): this.type = new DRAMCommand().asInstanceOf[this.type]
 }
@@ -96,13 +87,17 @@ class DRAMWdata(w: Int, v: Int) extends Bundle {
 
 class DRAMReadResponse(w: Int, v: Int) extends Bundle {
   val rdata = Vec(v, UInt(w.W))
-  val tag = new DRAMCommandTag
+  val tag = UInt(32.W)
+
+  def getTag = tag.asTypeOf(new DRAMTag)
 
   override def cloneType(): this.type = new DRAMReadResponse(w, v).asInstanceOf[this.type]
 }
 
 class DRAMWriteResponse(w: Int, v: Int) extends Bundle {
-  val tag = new DRAMCommandTag
+  val tag = UInt(32.W)
+
+  def getTag = tag.asTypeOf(new DRAMTag)
 
   override def cloneType(): this.type = new DRAMWriteResponse(w, v).asInstanceOf[this.type]
 }
@@ -116,7 +111,7 @@ class DRAMStream(w: Int, v: Int) extends Bundle {
   override def cloneType(): this.type = new DRAMStream(w, v).asInstanceOf[this.type]
 }
 
-class DRAMAddress(val addrWidth: Int) extends Bundle {
+class DRAMAddress(addrWidth: Int) extends Bundle {
   val bits = UInt(addrWidth.W)
 
 	val burstSize = globals.target.burstSizeBytes
@@ -135,6 +130,17 @@ object DRAMAddress {
     dramAddr.bits := addr
     dramAddr
   }
+}
+
+class DRAMTag(w: Int = 32) extends Bundle {
+  val uid = UInt((w - 9).W)
+  // if the AXI command gets split, tag the last command here
+  val cmdSplitLast = Bool()
+  // Order is important here; streamId should be at [7:0] so all FPGA targets will see the
+  // value on their AXI bus. uid may be truncated on targets with narrower bus.
+  val streamID = UInt(8.W)
+
+  override def cloneType(): this.type = new DRAMTag(w).asInstanceOf[this.type]
 }
 
 class GenericStreams(streamIns: List[StreamParInfo], streamOuts: List[StreamParInfo]) extends Bundle {

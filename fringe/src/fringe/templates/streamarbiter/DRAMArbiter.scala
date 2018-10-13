@@ -74,10 +74,12 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
   io.dram.cmd.bits.addr := cmdAddr.burstAddr
   io.dram.cmd.bits.rawAddr := cmdAddr.bits
   io.dram.cmd.bits.isWr := appStream.cmd.bits.isWr
-  io.dram.cmd.bits.tag.uid := appStream.cmd.bits.tag.uid
-  io.dram.cmd.bits.tag.streamId := appId
+  val cmdTag = Wire(new DRAMTag(appStream.cmd.bits.tag.getWidth))
+  cmdTag.uid := appStream.cmd.bits.getTag.uid
+  cmdTag.streamID := appId
   // tag only the last burst if we split the command, so we can send only the last wresp to the app
-  io.dram.cmd.bits.tag.cmdSplitLast := lastCmd
+  cmdTag.cmdSplitLast := lastCmd
+  io.dram.cmd.bits.tag := cmdTag.asUInt
 
   cmdSizeCounter.io.reset := appCmdDeq
   cmdSizeCounter.io.enable := dramCmdIssue
@@ -87,28 +89,31 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
   wdataCounter.io.enable := dramWriteIssue
   wdataCounter.io.stride := 1.U
 
+  val rrespTag = io.dram.rresp.bits.getTag
+  val wrespTag = io.dram.wresp.bits.getTag
+
   io.dram.wdata.bits.wlast := wlast
   io.app.zipWithIndex.foreach { case (app, i) =>
     app.cmd.ready := appCmdDeq & appDecoder(i)
     app.wdata.ready := dramWriteIssue & appDecoder(i)
 
-    app.rresp.valid := io.dram.rresp.valid & io.dram.rresp.bits.tag.streamId === i.U
+    app.rresp.valid := io.dram.rresp.valid & rrespTag.streamID === i.U
     app.rresp.bits := io.dram.rresp.bits
 
     // only pass on the last wresp to the app if we split the write command
-    app.wresp.valid := Mux(io.dram.wresp.bits.tag.cmdSplitLast, io.dram.wresp.valid, false.B) &
-                       (io.dram.wresp.bits.tag.streamId === i.U)
+    app.wresp.valid := Mux(wrespTag.cmdSplitLast, io.dram.wresp.valid, false.B) &
+                       (wrespTag.streamID === i.U)
     app.wresp.bits := io.dram.wresp.bits
   }
 
   io.dram.wdata.valid := appStream.wdata.valid
   io.dram.wdata.bits := appStream.wdata.bits
 
-  io.dram.rresp.ready := Vec(io.app.map { _.rresp.ready })(io.dram.rresp.bits.tag.streamId)
+  io.dram.rresp.ready := Vec(io.app.map { _.rresp.ready })(rrespTag.streamID)
   // only wait for app acknowledgement on the last wresp if we split the write command
   io.dram.wresp.ready := Mux(
-    io.dram.wresp.bits.tag.cmdSplitLast,
-    Vec(io.app.map { _.wresp.ready })(io.dram.wresp.bits.tag.streamId),
+    wrespTag.cmdSplitLast,
+    Vec(io.app.map { _.wresp.ready })(wrespTag.streamID),
     true.B
   )
 

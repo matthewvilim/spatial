@@ -20,7 +20,7 @@ class StreamArbiter(
 ) extends Module {
   val numStreams = loadStreamInfo.size + storeStreamInfo.size + gatherStreamInfo.size + scatterStreamInfo.size
   val streamTagWidth = log2Ceil(numStreams)
-  assert(streamTagWidth <= (new DRAMCommandTag).streamId.getWidth)
+  assert(streamTagWidth <= (new DRAMTag(64)).streamID.getWidth)
 
   val numDebugs = 500
 
