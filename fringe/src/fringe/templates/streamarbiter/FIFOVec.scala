@@ -19,16 +19,21 @@ class FIFOVec[T <: Data](t: T, depth: Int, v: Int) extends Module {
 		val chainDeq = Input(Bool())
 	})
 
-	val enqCounter = Counter(v)
-  when (io.in.valid & io.in.ready & io.chainEnq) {
-    enqCounter.inc()
-  }
-	val deqCounter = Counter(v)
-  when (io.out.valid & io.out.ready & io.chainDeq) {
-    deqCounter.inc()
-  }
-	val enqDecoder = UIntToOH(enqCounter.value)
-	val deqDecoder = UIntToOH(deqCounter.value)
+  val readEn = io.out.valid & io.out.ready
+  val writeEn = io.in.valid & io.in.ready
+
+  val counterW = log2Ceil(v)
+	val enqCounter = Module(new Counter(counterW))
+  enqCounter.io.enable := writeEn & io.chainEnq
+  enqCounter.io.stride := 1.U
+  val deqCounter = Module(new Counter(counterW))
+  deqCounter.io.enable :=  readEn & io.chainDeq
+  deqCounter.io.stride := 1.U
+
+	val enqDecoder = UIntToOH(enqCounter.io.out)
+	val deqDecoder = UIntToOH(deqCounter.io.out)
+
+	val rAddr = Mux(readEn, deqCounter.io.next, deqCounter.io.out)
 
 	val d = depth / v
 	val fifos = List.tabulate(v) { i =>
@@ -40,9 +45,9 @@ class FIFOVec[T <: Data](t: T, depth: Int, v: Int) extends Module {
 	}
 
 	val inReady = fifos.map { _.io.in.ready }
-	io.in.ready := Mux(io.chainEnq, Vec(inReady)(enqCounter.value), inReady.reduce { _&_ })
+	io.in.ready := Mux(io.chainEnq, Vec(inReady)(enqCounter.io.out), inReady.reduce { _&_ })
 	val outValid = fifos.map { _.io.out.valid }
-	io.out.valid := Mux(io.chainDeq, Vec(outValid)(deqCounter.value), outValid.reduce { _&_ })
+	io.out.valid := Mux(io.chainDeq, Vec(outValid)(deqCounter.io.out), outValid.reduce { _&_ })
 	val outBits = fifos.map { _.io.out.bits }
-	io.out.bits := Mux(io.chainDeq, Vec(List.fill(v) { Vec(outBits)(deqCounter.value) }), Vec(outBits))
+	io.out.bits := Mux(io.chainDeq, Vec(List.fill(v) { Vec(outBits)(rAddr) }), Vec(outBits))
 }

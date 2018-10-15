@@ -6,27 +6,6 @@ import chisel3.util._
 import fringe._
 import fringe.globals._
 
-class Counter(val w: Int) extends Module {
-  val io = IO(new Bundle {
-    val reset = Input(Bool())
-    val enable = Input(Bool())
-    val stride = Input(UInt(w.W))
-    val out = Output(UInt(w.W))
-  })
-
-  val count = RegInit(0.U)
-
-  val newCount = count + io.stride
-
-  when(io.reset) {
-    count := 0.U
-  } .elsewhen(io.enable) {
-    count := newCount
-  }
-
-  io.out := count
-}
-
 /*
 class AXICommandSplit(dram: DRAMStream) extends Module {
   val io = IO(new Bundle {
@@ -72,7 +51,7 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
   // this is the last command within a split command
   val lastCmd = (cmdSizeRemaining < maxSize)
   val cmdSize = Mux(lastCmd, cmdSizeRemaining, maxSize)
-  val wlast = dramWriteIssue & (wdataCounter.io.out + 1.U === cmdSize)
+  val wlast = dramWriteIssue & (wdataCounter.io.next === cmdSize)
   val cmdDone = Mux(writeCmd, wlast, dramCmdIssue)
   when(wlast) {
     writeIssued := false.B
@@ -85,7 +64,9 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
 
   io.dram.cmd.valid := appStream.cmd.valid & Mux(writeCmd, !writeIssued, true.B)
   io.dram.cmd.bits.size := cmdSize
-  val cmdAddr = DRAMAddress(appStream.cmd.bits.addr + cmdSizeCounter.io.out)
+  // convert burst count to bytes
+  val addrOffsetBytes = cmdSizeCounter.io.out << log2Ceil(target.burstSizeBytes)
+  val cmdAddr = DRAMAddress(appStream.cmd.bits.addr + addrOffsetBytes)
   io.dram.cmd.bits.addr := cmdAddr.burstAddr
   io.dram.cmd.bits.rawAddr := cmdAddr.bits
   io.dram.cmd.bits.isWr := appStream.cmd.bits.isWr
