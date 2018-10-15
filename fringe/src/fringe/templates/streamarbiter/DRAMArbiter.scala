@@ -12,7 +12,6 @@ class Counter(val w: Int) extends Module {
     val enable = Input(Bool())
     val stride = Input(UInt(w.W))
     val out = Output(UInt(w.W))
-    val next = Output(UInt(w.W))
   })
 
   val count = RegInit(0.U)
@@ -26,8 +25,23 @@ class Counter(val w: Int) extends Module {
   }
 
   io.out := count
-  io.next := newCount
 }
+
+/*
+class AXICommandSplit(dram: DRAMStream) extends Module {
+  val io = IO(new Bundle {
+    val in = Flipped(dramStream.cloneType)
+    val out = dramStream.cloneType
+  })
+}
+
+class AXICommandIssue(dram: DRAMStream) extends Module {
+  val io = IO(new Bundle {
+    val in = Flipped(dramStream.cloneType)
+    val out = dramStream.cloneType
+  })
+}
+*/
 
 class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
   val io = IO(new Bundle {
@@ -58,7 +72,8 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
   // this is the last command within a split command
   val lastCmd = (cmdSizeRemaining < maxSize)
   val cmdSize = Mux(lastCmd, cmdSizeRemaining, maxSize)
-  val wlast = dramWriteIssue & (wdataCounter.io.next === cmdSize)
+  val wlast = dramWriteIssue & (wdataCounter.io.out + 1.U === cmdSize)
+  val cmdDone = Mux(writeCmd, wlast, dramCmdIssue)
   when(wlast) {
     writeIssued := false.B
   } .elsewhen(dramCmdIssue & writeCmd) {
@@ -66,7 +81,7 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
   }
   // keep commands queued until all split commands have been issued
   // we also need to wait until wlast for write commands
-  val appCmdDeq = lastCmd & Mux(writeCmd, wlast, true.B)
+  val appCmdDeq = lastCmd & Mux(writeCmd, wlast, dramCmdIssue)
 
   io.dram.cmd.valid := appStream.cmd.valid & Mux(writeCmd, !writeIssued, true.B)
   io.dram.cmd.bits.size := cmdSize
@@ -82,7 +97,7 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
   io.dram.cmd.bits.tag := cmdTag.asUInt
 
   cmdSizeCounter.io.reset := appCmdDeq
-  cmdSizeCounter.io.enable := dramCmdIssue
+  cmdSizeCounter.io.enable := cmdDone
   cmdSizeCounter.io.stride := target.maxBurstsPerCmd.U
 
   wdataCounter.io.reset := wlast
@@ -92,7 +107,6 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
   val rrespTag = io.dram.rresp.bits.getTag
   val wrespTag = io.dram.wresp.bits.getTag
 
-  io.dram.wdata.bits.wlast := wlast
   io.app.zipWithIndex.foreach { case (app, i) =>
     app.cmd.ready := appCmdDeq & appDecoder(i)
     app.wdata.ready := dramWriteIssue & appDecoder(i)
@@ -106,8 +120,10 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
     app.wresp.bits := io.dram.wresp.bits
   }
 
-  io.dram.wdata.valid := appStream.wdata.valid
-  io.dram.wdata.bits := appStream.wdata.bits
+  io.dram.wdata.valid := appStream.wdata.valid & writeIssued
+  io.dram.wdata.bits.wdata := appStream.wdata.bits.wdata
+  io.dram.wdata.bits.wstrb := appStream.wdata.bits.wstrb
+  io.dram.wdata.bits.wlast := wlast
 
   io.dram.rresp.ready := Vec(io.app.map { _.rresp.ready })(rrespTag.streamID)
   // only wait for app acknowledgement on the last wresp if we split the write command
