@@ -69,14 +69,21 @@ class StreamArbiter(
   }
 
   val dramArbiter = Module(new DRAMArbiter(io.dram, numStreams))
-  dramArbiter.io.enable := io.enable
-  dramArbiter.io.dram <> io.dram
   dramArbiter.io.app <> Vec(
     loadControllers.map { _.io.dram } ++
     gatherControllers.map { _.io.dram } ++
     storeControllers.map { _.io.dram } ++
     scatterControllers.map { _.io.dram }
   )
+
+  val axiSplit = Module(new AXICommandSplit(io.dram))
+  axiSplit.io.in <> dramArbiter.io.dram
+
+  val axiIssue = Module(new AXICommandIssue(io.dram))
+  axiIssue.io.in <> axiSplit.io.out
+  io.dram <> axiIssue.io.out
+  io.dram.cmd.valid := io.enable & axiIssue.io.out.cmd.valid
+  io.dram.wdata.valid := io.enable & axiIssue.io.out.wdata.valid
 
   if (isDebugChannel) {
 		val signalLabels = ListBuffer[String]()

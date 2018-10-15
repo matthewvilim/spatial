@@ -73,6 +73,7 @@ class DRAMCommand extends Bundle {
   val tag = UInt(32.W)
 
   def getTag = tag.asTypeOf(new DRAMTag)
+  def setTag(t: DRAMTag) = tag := t.asUInt
 
   override def cloneType(): this.type = new DRAMCommand().asInstanceOf[this.type]
 }
