@@ -712,7 +712,6 @@ module test;
 //    io_genericStreamIn_bits_last = last;
   endfunction
 
-  reg stallForOneCycle = 0;
   // 1. If io_dram_0_cmd_valid, then send send DRAM request to CPP layer
   function void post_update_callbacks();
     if (io_dram_0_cmd_valid & ~reset) begin
@@ -722,13 +721,10 @@ module test;
     end
 
     // Lower the ready signal for a cycle after wlast goes high
-    if (io_dram_0_wdata_valid & ~reset & ~stallForOneCycle) begin
+    if (io_dram_0_wdata_valid & ~reset) begin
       io_dram_0_wdata_ready <= 1;
     end else begin
       io_dram_0_wdata_ready <= 0;
-      if (stallForOneCycle) begin
-        stallForOneCycle <= 0;
-      end
     end
 
 //    if (io_genericStreamOut_valid & ~reset) begin
@@ -892,11 +888,6 @@ module test;
         io_dram_0_wdata_bits_wstrb_62,
         io_dram_0_wdata_bits_wstrb_63
       );
-      if (io_dram_0_wdata_bits_wlast) begin
-        stallForOneCycle <= 1;
-      end else begin
-        stallForOneCycle <= 0;
-      end
     end
 
     serviceWRequest();
