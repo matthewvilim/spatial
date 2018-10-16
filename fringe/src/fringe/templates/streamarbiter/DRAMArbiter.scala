@@ -17,6 +17,11 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
   val appDecoder = UIntToOH(appId)
   val appStream = io.app(appId)
 
+  io.dram <> appStream
+  val tag = appStream.cmd.bits.getTag
+  tag.streamID := appId
+  io.dram.cmd.bits.setTag(tag)
+
   val rrespTag = io.dram.rresp.bits.getTag
   val wrespTag = io.dram.wresp.bits.getTag
 
@@ -27,19 +32,12 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
     app.cmd.ready := cmdIssue & appDecoder(i)
     app.wdata.ready := writeIssue & appDecoder(i)
 
-    app.rresp.valid := io.dram.rresp.valid & rrespTag.streamID === i.U
+    app.rresp.valid := io.dram.rresp.valid & (rrespTag.streamID === i.U)
     app.rresp.bits := io.dram.rresp.bits
 
-    // only pass on the last wresp to the app if we split the write command
     app.wresp.valid := io.dram.wresp.valid & (wrespTag.streamID === i.U)
     app.wresp.bits := io.dram.wresp.bits
   }
-
-  io.dram <> appStream
-
-  val tag = appStream.cmd.bits.getTag
-  tag.streamID := appId
-  io.dram.cmd.bits.setTag(tag)
 
   io.dram.rresp.ready := Vec(io.app.map { _.rresp.ready })(rrespTag.streamID)
   io.dram.wresp.ready := Vec(io.app.map { _.wresp.ready })(wrespTag.streamID)

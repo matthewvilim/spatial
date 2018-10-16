@@ -65,7 +65,7 @@ class AXICommandIssue(dram: DRAMStream) extends Module {
 
   val writeCmd = io.in.cmd.bits.isWr
 
-  val wlast = dramWriteIssue & (wdataCounter.io.next === io.in.cmd.bits.size)
+  val wlast = dramWriteIssue & (wdataCounter.io.out === io.in.cmd.bits.size)
   val cmdDone = Mux(writeCmd, wlast, dramCmdIssue)
   when(wlast) {
     writeIssued := false.B
