@@ -716,18 +716,18 @@ module test;
   // 1. If io_dram_0_cmd_valid, then send send DRAM request to CPP layer
   function void post_update_callbacks();
     if (io_dram_0_cmd_valid & ~reset) begin
-      io_dram_0_cmd_ready = 1;
+      io_dram_0_cmd_ready <= 1;
     end else begin
-      io_dram_0_cmd_ready = 0;
+      io_dram_0_cmd_ready <= 0;
     end
 
     // Lower the ready signal for a cycle after wlast goes high
     if (io_dram_0_wdata_valid & ~reset & ~stallForOneCycle) begin
-      io_dram_0_wdata_ready = 1;
+      io_dram_0_wdata_ready <= 1;
     end else begin
-      io_dram_0_wdata_ready = 0;
+      io_dram_0_wdata_ready <= 0;
       if (stallForOneCycle) begin
-        stallForOneCycle = 0;
+        stallForOneCycle <= 0;
       end
     end
 
@@ -893,9 +893,9 @@ module test;
         io_dram_0_wdata_bits_wstrb_63
       );
       if (io_dram_0_wdata_bits_wlast) begin
-        stallForOneCycle = 1;
+        stallForOneCycle <= 1;
       end else begin
-        stallForOneCycle = 0;
+        stallForOneCycle <= 0;
       end
     end
 

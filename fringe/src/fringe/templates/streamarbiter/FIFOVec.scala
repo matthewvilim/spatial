@@ -22,7 +22,7 @@ class FIFOVec[T <: Data](t: T, depth: Int, v: Int) extends Module {
   val readEn = io.out.valid & io.out.ready
   val writeEn = io.in.valid & io.in.ready
 
-  val counterW = log2Ceil(v)
+  val counterW = log2Ceil(v).max(1)
 	val enqCounter = Module(new Counter(counterW))
   enqCounter.io.enable := writeEn & io.chainEnq
   enqCounter.io.stride := 1.U
@@ -33,7 +33,7 @@ class FIFOVec[T <: Data](t: T, depth: Int, v: Int) extends Module {
 	val enqDecoder = UIntToOH(enqCounter.io.out)
 	val deqDecoder = UIntToOH(deqCounter.io.out)
 
-	val rAddr = Mux(readEn, deqCounter.io.next, deqCounter.io.out)
+	val rAddr = deqCounter.io.out
 
 	val d = depth / v
 	val fifos = List.tabulate(v) { i =>

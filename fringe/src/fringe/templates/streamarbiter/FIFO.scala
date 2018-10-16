@@ -43,12 +43,10 @@ class FIFO[T <: Data](t: T, depth: Int, banked: Boolean = false) extends Module 
   val empty = ptrMatch && !maybeFull
   val full = ptrMatch && maybeFull
 
-  val rAddr = Mux(readEn, deqCounter.io.next, deqCounter.io.out)
-
   if (t.getWidth == 1 || banked) {
     val m = Module(new FFRAM(t, depth))
 
-		m.io.raddr := rAddr
+		m.io.raddr := deqCounter.io.out
 		m.io.wen := writeEn
 		m.io.waddr := enqCounter.io.out
 		m.io.wdata := io.in.bits
@@ -71,7 +69,7 @@ class FIFO[T <: Data](t: T, depth: Int, banked: Boolean = false) extends Module 
   } else {
     val m = Module(new SRAM(t, depth, "VIVADO_SELECT"))
 
-		m.io.raddr := rAddr
+		m.io.raddr := Mux(readEn, deqCounter.io.next, deqCounter.io.out)
 		m.io.wen := writeEn
 		m.io.waddr := enqCounter.io.out
 		m.io.wdata := io.in.bits

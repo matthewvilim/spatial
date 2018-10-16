@@ -22,8 +22,10 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
   tag.streamID := appId
   io.dram.cmd.bits.setTag(tag)
 
-  val rrespTag = io.dram.rresp.bits.getTag
-  val wrespTag = io.dram.wresp.bits.getTag
+  val rrespStream = io.dram.rresp.bits.getTag.streamID
+  val wrespStream = io.dram.wresp.bits.getTag.streamID
+  val rrespDecoder = UIntToOH(rrespStream)
+  val wrespDecoder = UIntToOH(wrespStream)
 
   val cmdIssue = io.dram.cmd.valid & io.dram.cmd.ready
   val writeIssue = io.dram.wdata.valid & io.dram.wdata.ready
@@ -32,13 +34,13 @@ class DRAMArbiter(dramStream: DRAMStream, streamCount: Int) extends Module {
     app.cmd.ready := cmdIssue & appDecoder(i)
     app.wdata.ready := writeIssue & appDecoder(i)
 
-    app.rresp.valid := io.dram.rresp.valid & (rrespTag.streamID === i.U)
+    app.rresp.valid := io.dram.rresp.valid & rrespDecoder(i)
     app.rresp.bits := io.dram.rresp.bits
 
-    app.wresp.valid := io.dram.wresp.valid & (wrespTag.streamID === i.U)
+    app.wresp.valid := io.dram.wresp.valid & wrespDecoder(i)
     app.wresp.bits := io.dram.wresp.bits
   }
 
-  io.dram.rresp.ready := Vec(io.app.map { _.rresp.ready })(rrespTag.streamID)
-  io.dram.wresp.ready := Vec(io.app.map { _.wresp.ready })(wrespTag.streamID)
+  io.dram.rresp.ready := Vec(io.app.map { _.rresp.ready })(rrespStream)
+  io.dram.wresp.ready := Vec(io.app.map { _.wresp.ready })(wrespStream)
 }
