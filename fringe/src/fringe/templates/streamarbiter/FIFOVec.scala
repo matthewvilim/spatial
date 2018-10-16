@@ -22,7 +22,7 @@ class FIFOVec[T <: Data](t: T, depth: Int, v: Int) extends Module {
   val readEn = io.out.valid & io.out.ready
   val writeEn = io.in.valid & io.in.ready
 
-  val counterW = log2Ceil(v).max(1)
+  val counterW = log2Ceil(v)
 	val enqCounter = Module(new Counter(counterW))
   enqCounter.io.enable := writeEn & io.chainEnq
   enqCounter.io.stride := 1.U

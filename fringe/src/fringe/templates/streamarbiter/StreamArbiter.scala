@@ -75,10 +75,10 @@ class StreamArbiter(
     scatterControllers.map { _.io.dram }
   )
 
-  val axiSplit = Module(new AXICommandSplit(io.dram))
+  val axiSplit = Module(new AXICmdSplit(io.dram))
   axiSplit.io.in <> dramArbiter.io.dram
 
-  val axiIssue = Module(new AXICommandIssue(io.dram))
+  val axiIssue = Module(new AXICmdIssue(io.dram))
   axiIssue.io.in <> axiSplit.io.out
   io.dram <> axiIssue.io.out
   io.dram.cmd.valid := io.enable & axiIssue.io.out.cmd.valid

@@ -6,7 +6,7 @@ import chisel3.util._
 import fringe._
 import fringe.globals._
 
-class AXICommandSplit(dram: DRAMStream) extends Module {
+class AXICmdSplit(dram: DRAMStream) extends Module {
   val io = IO(new Bundle {
     val in = Flipped(dram.cloneType)
     val out = dram.cloneType
@@ -47,7 +47,7 @@ class AXICommandSplit(dram: DRAMStream) extends Module {
   io.out.wresp.ready := Mux(wrespSplit, io.in.wresp.ready, true.B)
 }
 
-class AXICommandIssue(dram: DRAMStream) extends Module {
+class AXICmdIssue(dram: DRAMStream) extends Module {
   val io = IO(new Bundle {
     val in = Flipped(dram.cloneType)
     val out = dram.cloneType
@@ -79,6 +79,7 @@ class AXICommandIssue(dram: DRAMStream) extends Module {
 
   // keep commands queued until writes have been issued
   io.in.cmd.ready := Mux(writeCmd, wlast, dramCmdIssue)
+  io.in.wdata.ready := dramWriteIssue
 
   io.out.cmd.valid := io.in.cmd.valid & Mux(writeCmd, !writeIssued, true.B)
 
