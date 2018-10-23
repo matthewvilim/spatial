@@ -28,7 +28,7 @@ import spatial.dsl._
       sramVec load vec(0::N par p)
       Foreach(N by 1 par 2) { i =>
         sramRow load matrix(i, 0::N par p)
-        val a = Reduce(0)(N by 1 par p) { j =>
+        val a = Reduce(0.to[T])(N by 1 par p) { j =>
           sramRow(j) * sramVec(j)
         }{(a,b) => a + b }
         sramOut(i) = a
