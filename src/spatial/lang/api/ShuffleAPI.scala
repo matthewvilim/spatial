@@ -6,8 +6,8 @@ import spatial.node._
 
 trait ShuffleAPI { this: Implicits =>
 
-  @api def shuffleCompress[A:Bits](data: Bits[A], mask: Bit): A = {
-    //implicit val tA: Bits[A] = a.selfType
+  @rig def compress[T](data: Vec[T], mask: Vec[Bit]): Vec[T] = {
+    implicit val tV: Vec[T] = data
     stage(ShuffleCompress(data, mask))
   }
 

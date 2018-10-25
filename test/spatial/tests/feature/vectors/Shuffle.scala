@@ -10,11 +10,18 @@ import spatial.dsl._
     Accel {
       val data = SRAM[Int](4)
       val mask = SRAM[Bit](4)
-      val reg = Reg[Int]
-      Foreach(4 by 1 par 4) { i =>
-        reg := shuffleCompress(data(i), mask(i))
+      val fifo = FIFO[Int](4)
+      val p = 4
+      Foreach(4 by 1 par p) { i =>
+        val test = Vec.fromSeq(List.tabulate(p) { i => data(i) })
+        val test2 = Vec.fromSeq(List.tabulate(p) { i => mask(i) })
+        val out = compress(test, test2)
+        val test3 = out(i::i)
+        fifo.enq(test3)
       }
-      out := reg
+      out := fifo.deq
     }
+
+    println(getArg(out))
   }
 }
