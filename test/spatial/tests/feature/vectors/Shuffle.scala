@@ -16,7 +16,7 @@ import spatial.dsl._
         val test = Vec.fromSeq(List.tabulate(p) { i => data(i) })
         val test2 = Vec.fromSeq(List.tabulate(p) { i => mask(i) })
         val out = compress(test, test2)
-        val test3 = out(i::i)
+        val test3 = out(i)
         fifo.enq(test3)
       }
       out := fifo.deq
