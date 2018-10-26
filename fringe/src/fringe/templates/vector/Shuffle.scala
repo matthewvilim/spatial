@@ -1,4 +1,4 @@
-package fringe.templates.shuffle
+package fringe.templates.vector
 
 import chisel3._
 
