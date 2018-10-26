@@ -2,6 +2,7 @@ package spatial.codegen.chiselgen
 
 import argon._
 import argon.node._
+import spatial.node._
 
 trait ChiselGenVec extends ChiselGenCommon {
 
@@ -20,6 +21,10 @@ trait ChiselGenVec extends ChiselGenCommon {
     case VecApply(vec, id) =>
       emit(src"val $lhs = Wire(${lhs.tp})")
       emit(src"$lhs.r := $vec($id).r")
+
+    case ShuffleCompress(data, mask) =>
+      emit(src"val $lhs = Wire(${lhs.tp})")
+      emit(src"$lhs = Shuffle.compress($data, $mask)")
 
     case _ => super.gen(lhs, rhs)
   }
