@@ -73,6 +73,7 @@ elif [[ $type == "vcs-gdocs" ]]; then
   branchname=`git rev-parse --abbrev-ref HEAD | sed "s/HEAD/unknown/g"`
   export FRINGE_PACKAGE="vcs-gdocs-${branchname}"
   make resources
+  make publish
   hash=`git rev-parse HEAD`
   export timestamp=`git show -s --format=%ci`
   curpath="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -81,13 +82,14 @@ elif [[ $type == "vcs-gdocs" ]]; then
   echo "python3 ${curpath}/resources/regression/gdocs.py \"prepare_sheet\" \"$hash\" \"$branchname\" \"$timestamp\" \"vcs\""
   python3 ${curpath}/resources/regression/gdocs.py "prepare_sheet" "$hash" "$branchname" "$timestamp" "vcs"
   nice -n 20 sbt -Dmaxthreads=${NUM_THREADS} -Dtest.VCS=true "testOnly $tests" 2>&1 | tee $fileout
-  python3 ${curpath}/resources/regression/gdocs.py "report_changes" "vcs"
+  python3 ${curpath}/resources/regression/gdocs.py "report_changes" "vcs" "any" "any"
   python3 ${curpath}/resources/regression/gdocs.py "report_slowdowns" "runtime" "vcs"
 elif [[ $type == "scalasim-gdocs" ]]; then
   export GDOCS=1
   branchname=`git rev-parse --abbrev-ref HEAD | sed "s/HEAD/unknown/g"`
   export FRINGE_PACKAGE="scalasim-gdocs-${branchname}"
   make resources
+  make publish
   hash=`git rev-parse HEAD`
   export timestamp=`git show -s --format=%ci`
   curpath="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -96,7 +98,7 @@ elif [[ $type == "scalasim-gdocs" ]]; then
   echo "python3 ${curpath}/resources/regression/gdocs.py \"prepare_sheet\" \"$hash\" \"$branchname\" \"$timestamp\" \"scalasim\""
   python3 ${curpath}/resources/regression/gdocs.py "prepare_sheet" "$hash" "$branchname" "$timestamp" "scalasim"
   nice -n 20 sbt -Dmaxthreads=${NUM_THREADS} -Dtest.Scala=true "testOnly $tests" 2>&1 | tee $fileout
-  python3 ${curpath}/resources/regression/gdocs.py "report_changes" "scalasim"
+  python3 ${curpath}/resources/regression/gdocs.py "report_changes" "scalasim" "any" "any"
   python3 ${curpath}/resources/regression/gdocs.py "report_slowdowns" "runtime" "scalasim"
 else
   echo -e "$FAIL Usage: test_all.sh <test type> [test(s)]"
