@@ -15,18 +15,17 @@ import spatial.dsl._
     setMem(dram2, src2)
 
     Accel {
-      val data = SRAM[Int](4)
+      val data = FIFO[Int](4)
       val mask = SRAM[Bit](4)
       val fifo = FIFO[Int](4)
-      val p = 4
+      val p = 2
 
-      data load dram(0::4)
-      mask load dram2(0::4)
+      data load dram(0::4 par p)
+      mask load dram2(0::4 par p)
       Foreach(4 by 1 par p) { i =>
-        val test = Vec.fromSeq(List.tabulate(p) { i => data(i) })
-        val test2 = Vec.fromSeq(List.tabulate(p) { i => mask(i) })
-        val comp = compress(test, test2)
-        fifo.enq(comp(i))
+        val comp = compress(data.deq(), mask(i))
+        fifo.enq(comp)
+        //fifo.enq(data.deq())
       }
       out := fifo.deq
     }
