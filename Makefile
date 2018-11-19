@@ -18,13 +18,13 @@ publish:
 ###-----------------------------------###
 ## Publish spatial locally to m2.      ##
 ###-----------------------------------###
-publishM2Local: 
+publishM2Local: clean
 	bin/publish local
 
 ###-----------------------------------###
 ## Publish spatial locally to m2.      ##
 ###-----------------------------------###
-publishM2Remote: 
+publishM2Remote: clean
 	bin/publish remoteSnapshot
 
 ###-----------------------------------###
@@ -90,8 +90,26 @@ clear:
 ###-----------------------------------###
 ## Clean all compiled Scala projects   ##
 ###-----------------------------------###
-clean:
-	sbt "; forge/clean; argon/clean; spatial/clean"
+clean: clean-argon clean-forge clean-spatial
 	sbt clean
 
+###-----------------------------------###
+## Clean Spatial projects              ##
+###-----------------------------------###
+clean-spatial:
+	sbt "; spatial/clean"
+	sbt clean
 
+###-----------------------------------###
+## Clean Argon projects                ##
+###-----------------------------------###
+clean-argon:
+	sbt "; argon/clean"
+	sbt clean
+
+###-----------------------------------###
+## Clean Forge projects                ##
+###-----------------------------------###
+clean-forge:
+	sbt "; forge/clean"
+	sbt clean
