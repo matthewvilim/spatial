@@ -23,9 +23,8 @@ import spatial.dsl._
       data load dram(0::4 par p)
       mask load dram2(0::4 par p)
       Foreach(4 by 1 par p) { i =>
-        val comp = compress(data.deq(), mask(i))
-        fifo.enq(comp)
-        //fifo.enq(data.deq())
+        val c = compress(pack(data.deq(), mask(i)))
+        fifo.enq(c._1)
       }
       out := fifo.deq
     }

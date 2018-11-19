@@ -22,9 +22,11 @@ trait ChiselGenVec extends ChiselGenCommon {
       emit(src"val $lhs = Wire(${lhs.tp})")
       emit(src"$lhs.r := $vec($id).r")
 
-    case ShuffleCompress(data, mask) =>
+      /*
+    case ShuffleCompressVec(in) =>
       emit(src"val $lhs = Wire(${lhs.tp})")
       emit(src"$lhs := Shuffle.compress($data, $mask)")
+      */
 
     case _ => super.gen(lhs, rhs)
   }
