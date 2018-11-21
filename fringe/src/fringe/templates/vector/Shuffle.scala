@@ -9,7 +9,7 @@ class ShuffleCompressNetwork[T <: Data](data: Vec[T]) extends Module {
     val out = Output(data.cloneType)
   })
 
-  io.in := io.out
+  io.out := io.in
 }
 
 object Shuffle {
