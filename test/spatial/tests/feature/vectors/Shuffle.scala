@@ -7,23 +7,23 @@ import spatial.dsl._
   def main(args: Array[String]): Unit = {
     val out = ArgOut[Int]
 
-    val src = Array.tabulate(4){ i => i }
-    val src2 = Array.tabulate(4){ i => 1.to[Bit] }
-    val dram = DRAM[Int](4)
-    val dram2 = DRAM[Bit](4)
-    setMem(dram, src)
-    setMem(dram2, src2)
+    val src = Array.tabulate(128){ i => i }
+    val src2 = Array.tabulate(128){ i => 1.to[Bit] }
+    val dataDRAM = DRAM[Int](128)
+    val maskDRAM = DRAM[Bit](128)
+    setMem(dataDRAM, src)
+    setMem(maskDRAM, src2)
 
     Accel {
-      val data = FIFO[Int](4)
-      val mask = SRAM[Bit](4)
-      val fifo = FIFO[Int](4)
-      val p = 2
+      val data = FIFO[Int](128)
+      val mask = FIFO[Bit](128)
+      val fifo = FIFO[Int](128)
+      val p = 8
 
-      data load dram(0::4 par p)
-      mask load dram2(0::4 par p)
-      Foreach(4 by 1 par p) { i =>
-        val c = compress(pack(data.deq(), mask(i)))
+      data load dataDRAM(0::128 par p)
+      mask load maskDRAM(0::128 par p)
+      Foreach(128 par p) { i =>
+        val c = compress(pack(data.deq(), mask.deq()))
         fifo.enq(c._1)
       }
       out := fifo.deq

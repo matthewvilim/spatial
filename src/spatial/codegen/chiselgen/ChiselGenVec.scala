@@ -28,7 +28,8 @@ trait ChiselGenVec extends ChiselGenCommon {
       val (maskmsb, masklsb) = getField(in.head.tp, "_2")
       val data = in.map{ quote(_) + s".r($datamsb, $datalsb)" }.mkString(src"List[UInt](", ",", ")")
       val mask = in.map{ quote(_) + s".r($maskmsb)" }.mkString(src"List[Bool](", ",", ")")
-      emit(src"$lhs := Shuffle.compress(Vec($data), Vec($mask))")
+      emit(src"val (${lhs}_data, ${lhs}_mask) = Shuffle.compress(Vec($data), Vec($mask))")
+      emit(src"${lhs}.zipWithIndex.foreach { case (a, i) => a.r := Cat(${lhs}_mask(i).r, ${lhs}_data(i).r) }")
 
     case _ => super.gen(lhs, rhs)
   }
