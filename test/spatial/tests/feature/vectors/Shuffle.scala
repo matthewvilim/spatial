@@ -7,7 +7,7 @@ import spatial.dsl._
   def main(args: Array[String]): Unit = {
     val out = ArgOut[Int]
 
-    val src = Array.tabulate(128){ i => i }
+    val src = Array.tabulate(128){ i => i.to[Int] }
     val src2 = Array.tabulate(128){ i => 1.to[Bit] }
     val dataDRAM = DRAM[Int](128)
     val maskDRAM = DRAM[Bit](128)

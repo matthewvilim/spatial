@@ -59,7 +59,7 @@ trait CppGenArray extends CppGenCommon {
                    else if (d+f > 4) s"int8_t"
                    else if (d+f > 2) s"int8_t"
                    else if (d+f == 2) s"int8_t"
-                   else "bool"
+                   else "int8_t" // std::vector doesn't play well with bool due to C++ optimizations
 
           emit(src"(*$lhs)[$i] = (${intermediate_tp}) ${value};") // Always convert to signed, then to unsigned if on the boards
         case _ => emit(src"(*$lhs)[$i] = ${value};")

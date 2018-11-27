@@ -69,7 +69,7 @@ trait CppGenCommon extends CppCodegen {
     case FloatType()  => "float"
     case DoubleType() => "double"
     case FltPtType(g,e) => "float"
-    case _: Bit => "bool"
+    case _: Bit => "uint8_t"
     case _: Text => "string"
     case ai: Reg[_] => remap(ai.typeArgs.head)
     case _: Vec[_] => "vector<" + remap(tp.typeArgs.head) + ">"
