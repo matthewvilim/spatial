@@ -7,14 +7,14 @@ import fringe._
 import fringe.utils._
 
 class ShuffleCompressNetwork[T <: Data](t: T, v: Int) extends Module {
-  class Data extends Bundle {
+  class ShuffleItem extends Bundle {
     val d = t.cloneType
     val m = Bool()
   }
 
   val io = IO(new Bundle {
-    val in = Input(Vec(v, new Data))
-    val out = Output(Vec(v, new Data))
+    val in = Input(Vec(v, new ShuffleItem))
+    val out = Output(Vec(v, new ShuffleItem))
   })
 
   def stageMap(v: Int) = {
@@ -29,7 +29,7 @@ class ShuffleCompressNetwork[T <: Data](t: T, v: Int) extends Module {
     List.tabulate(v) { i => if (i % 2 == 0) levelEven else levelOdd }
   }
   
-  val stages = List.fill(v) { Wire(Vec(v, new Data)) }
+  val stages = List.fill(v) { Wire(Vec(v, new ShuffleItem)) }
 
   stageMap(v).zipWithIndex.foreach { case (stage, i) =>
     val in = if (i == 0) io.in else stages(i - 1)
@@ -53,6 +53,6 @@ object Shuffle {
       in.d := data(i)
       in.m := mask(i)
     }
-    (Vec(m.io.out.map { _.d }), Vec(m.io.out.map { _.d }))
+    (Vec(m.io.out.map { _.d }), Vec(m.io.out.map { _.m }))
   }
 }
