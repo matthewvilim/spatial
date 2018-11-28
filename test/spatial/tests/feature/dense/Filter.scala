@@ -2,7 +2,7 @@ package spatial.tests.feature.vectors
 
 import spatial.dsl._
 
-@spatial class ShuffleTest extends SpatialTest {
+@spatial class FilterTest extends SpatialTest {
 
   def main(args: Array[String]): Unit = {
     val out = ArgOut[Int]
