@@ -40,7 +40,7 @@ class ShuffleCompressNetwork[T <: Data](t: T, v: Int) extends Module {
         Mux(s, in(b), in(a))
       )
     }.toList)
-    stages(i) := getRetimed(out, 1)
+    stages(i) := out //getRetimed(out, 1)
   }
 
   io.out := stages.last
