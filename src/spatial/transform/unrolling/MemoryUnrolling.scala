@@ -112,12 +112,12 @@ trait MemoryUnrolling extends UnrollingBase {
 
   def unrollShuffle[A](lhs: Sym[_], rhs: ShuffleOp[A])(implicit ctx: SrcCtx): List[Sym[_]] = {
     implicit val A: Bits[A] = rhs.A
-    val in = lanes.map { i => f(rhs.in).asInstanceOf[Tup2[A,Bit]] }
-    implicit val vT: Type[Vec[Tup2[A,Bit]]] = Vec.bits[Tup2[A,Bit]](in.length)
+    val in = lanes.map { i => f(rhs.in).asInstanceOf[Tup2[Bit,A]] }
+    implicit val vT: Type[Vec[Tup2[Bit,A]]] = Vec.bits[Tup2[Bit,A]](in.length)
     val shuffle = stage(ShuffleCompressVec(in))
     lanes.unify(lhs, shuffle)
     val vec = lanes.map { i =>
-      val elem: Sym[Tup2[A,Bit]] = shuffle(i)
+      val elem: Sym[Tup2[Bit,A]] = shuffle(i)
       register(lhs -> elem)
       elem
     }

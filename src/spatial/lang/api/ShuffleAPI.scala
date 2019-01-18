@@ -1,13 +1,12 @@
 package spatial.lang.api
 
 import argon._
+import argon.tags.struct
 import forge.tags._
 import spatial.node._
 
 trait ShuffleAPI { this: Implicits =>
-
-  @rig def compress[A:Bits](in: Tup2[A,Bit]): Tup2[A,Bit] = {
+  @api def compress[A:Bits](in: Tup2[Bit, A]): Tup2[Bit, A] = {
     stage(ShuffleCompress(in))
   }
-
 }

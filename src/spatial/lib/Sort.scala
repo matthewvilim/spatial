@@ -5,11 +5,11 @@ import spatial.dsl._
 
 object Sort {
 
-    def log(x: scala.Int, base: scala.Int) = Math.round(scala.math.log(x.toDouble) / scala.math.log(base.toDouble)).toInt
+  def log(x: scala.Int, base: scala.Int) = Math.round(scala.math.log(x.toDouble) / scala.math.log(base.toDouble)).toInt
 
   @virtualize
   @api def mergeSort[T:Num](
-    mem: SRAM1[T],
+    mem: SRAM1[Tup2[I32, T]],
     mergePar: scala.Int,
     ways: scala.Int
   ): Unit = {
@@ -20,7 +20,7 @@ object Sort {
     // extra level for base case
     val levelCount = log(sramBlockSize / blockSizeInit, ways) + 1
 
-    val sramMergeBuf = MergeBuffer[T](ways, mergePar)
+    val sramMergeBuf = MergeBuffer[Tup2[I32, T]](ways, mergePar)
 
     val blockSize = Reg[I32](blockSizeInit)
     val mergeSize = Reg[I32](mergeSizeInit)
@@ -61,8 +61,7 @@ object Sort {
 
   @virtualize
   @api def mergeSort[T:Num](
-    src: DRAM1[T],
-    dst: DRAM1[T],
+    srcDoubleBuf: DRAM1[Tup2[I32, T]],
     mergePar: scala.Int = 2,
     ways: scala.Int = 2,
     numel: scala.Int
@@ -72,12 +71,12 @@ object Sort {
 
     // SRAM block sort
     Pipe {
-      val sram = SRAM[T](sramBlockSize)
+      val sram = SRAM[Tup2[I32, T]](sramBlockSize)
       Sequential.Foreach(0 until numel by sramBlockSize) { blockAddr =>
         val blockRange = blockAddr::blockAddr + sramBlockSize par mergePar
-        sram load src(blockRange)
+        sram load srcDoubleBuf(blockRange)
         mergeSort(sram, mergePar, ways)
-        src(blockRange) store sram
+        srcDoubleBuf(blockRange) store sram
       }
     }
 
@@ -91,8 +90,8 @@ object Sort {
 
       val doubleBuf = Reg[Boolean]
       doubleBuf := true
-      val fifos = List.fill(ways) { FIFO[T](numel) }
-      val mergeBuf = MergeBuffer[T](ways, mergePar)
+      val fifos = List.fill(ways) { FIFO[Tup2[I32, T]](128) }
+      val mergeBuf = MergeBuffer[Tup2[I32, T]](ways, mergePar)
 
       val blockSize = Reg[I32](blockSizeInit)
       val mergeSize = Reg[I32](mergeSizeInit)
@@ -106,22 +105,16 @@ object Sort {
           val addr = List.tabulate(ways) { i => (block * mergeSize) + (i * blockSize) }
           Stream {
             fifos.zipWithIndex.foreach { case (f, i) =>
-              val lAddr = addr(i)::addr(i) + blockSize par mergePar
-              if (doubleBuf) {
-                f load src(lAddr)
-              } else {
-                f load dst(lAddr)
-              }
+              val lOffset = mux(doubleBuf, 0, numel) 
+              val lAddr = addr(i) + lOffset::addr(i) + lOffset + blockSize par mergePar
+              f load srcDoubleBuf(lAddr)
               Foreach(0 until blockSize par mergePar) { j =>
                 mergeBuf.enq(i, f.deq())
               }
             }
-            val sAddr = addr(0)::addr(0) + mergeSize par mergePar
-            if (doubleBuf) {
-              dst(sAddr) store mergeBuf
-            } else {
-              src(sAddr) store mergeBuf
-            }
+            val sOffset = mux(doubleBuf, numel, 0) 
+            val sAddr = addr(0) + sOffset::addr(0) + sOffset + mergeSize par mergePar
+            srcDoubleBuf(sAddr) store mergeBuf
           }
         }
         Pipe {

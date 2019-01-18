@@ -12,9 +12,9 @@ trait StaticAPI_Internal extends InternalAliases with SpatialVirtualization with
   with DebuggingAPI_Internal
   with FileIOAPI
   with MathAPI
+  with ShuffleAPI
   with MiscAPI
   with MuxAPI
-  with ShuffleAPI
   with TensorConstructorAPI
   with TransferAPI
   with TuplesAPI

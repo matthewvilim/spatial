@@ -30,8 +30,8 @@ import spatial.dsl._
         maskF load maskDRAM(0::n par p)
         Foreach(n par p) { i =>
           val m = maskF.deq().bit(0)
-          val c = compress(pack(dataF.deq(), m))
-          outF.enq(c._1, c._2)
+          val c = compress(pack(m, dataF.deq()))
+          outF.enq(c._2, c._1)
         }
         outDRAM(0::filterCount par p) store outF
       }
