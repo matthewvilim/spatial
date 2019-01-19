@@ -1799,9 +1799,9 @@ import spatial.targets._
 
     printArray(values, "Sorted Result: ")
 
-    //val cksum = Array.tabulate(numel){ i => pack(sorted_result(i), sorted_result(i+1)) }.map{a => a._1 <= a._2}.reduce{_&&_}
-    //println("PASS: " + cksum + " (Sort_Merge)")
-    //assert(cksum)
+    val cksum = Array.tabulate(numel - 1){ i => pack(values(i), values(i+1)) }.map{a => a._1 <= a._2}.reduce{_&&_}
+    println("PASS: " + cksum + " (Sort_Merge)")
+    assert(cksum)
   }
 }
 

@@ -85,8 +85,7 @@ object Sort {
       val blockSizeInit = sramBlockSize
       val mergeSizeInit = blockSizeInit * ways
       val mergeCountInit = numel / mergeSizeInit
-      // extra level for base case
-      val levelCount = log(numel / blockSizeInit, ways)
+      val levelCount = log(numel / blockSizeInit, ways) + 1
 
       val doubleBuf = Reg[Boolean]
       doubleBuf := true
@@ -117,10 +116,14 @@ object Sort {
             srcDoubleBuf(sAddr) store mergeBuf
           }
         }
+        // copy back to first buffer
+        val finalCopy = (level == levelCount - 2)
         Pipe {
-          blockSize := blockSize * ways
-          mergeSize := mergeSize * ways
-          mergeCount := mergeCount / ways
+          if (!finalCopy) {
+            blockSize := blockSize * ways
+            mergeSize := mergeSize * ways
+            mergeCount := mergeCount / ways
+          }
           doubleBuf := !doubleBuf
         }
       }
