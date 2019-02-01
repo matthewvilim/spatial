@@ -98,12 +98,12 @@ class FIFOPeek[T<:Data](val t: T) extends Module {
   io.out.bits := ff.io.out.bits
 }
 
-class SortPipe(val w: Int, val v: Int) extends Module {
+class SortPipe[T<:KeyValue](val t: T, val v: Int) extends Module {
   assert(isPow2(v))
 
   val io = IO(new Bundle {
-    val in = Flipped(Decoupled(Vec(v, new KeyValue(w))))
-    val out = Decoupled(Vec(v, new KeyValue(w)))
+    val in = Flipped(Decoupled(Vec(v, Valid(t.cloneType))))
+    val out = Decoupled(Vec(v, Valid(t.cloneType)))
   })
 
   def sortNetworkMap(width: Int) = {
@@ -138,14 +138,14 @@ class SortPipe(val w: Int, val v: Int) extends Module {
 
   val en = io.out.ready | ~io.out.valid
 
-  val stages = List.fill(sortMap.length) { Wire(Vec(v, new KeyValue(w))) }
+  val stages = List.fill(sortMap.length) { Wire(Vec(v, Valid(t.cloneType))) }
   sortMap.zipWithIndex.foreach { case (s, i) =>
     val stageIn = if (i == 0) io.in.bits else stages(i - 1)
-    val stageOut = Wire(Vec(v, new KeyValue(w)))
+    val stageOut = Wire(Vec(v, Valid(t.cloneType)))
     s.foreach { case (a, b) =>
       val inA = stageIn(a)
       val inB = stageIn(b)
-      val comp = inA < inB
+      val comp = (inA.bits < inB.bits) & inB.valid
       stageOut(a) := Mux(comp, inA, inB)
       stageOut(b) := Mux(comp, inB, inA)
     }
@@ -158,11 +158,17 @@ class SortPipe(val w: Int, val v: Int) extends Module {
 }
 
 class MergeBufferIO(val ways: Int, val w: Int, val v: Int) extends Bundle {
-  val in = Vec(ways, Flipped(Decoupled(Vec(v, new KeyValue(w)))))
+  class DecoupledVec extends Bundle {
+    val ready = Input(Bool())
+    val bits = Vec(v, Valid(new KeyValue(w)))
+    def valid = bits.map { _.valid }.reduce { _|_ }
+  }
+
+  val in = Vec(ways, Flipped(new DecoupledVec))
   val initMerge = Flipped(Valid(Bool()))
-  val inBound = Vec(ways, Flipped(Valid(UInt(w.W))))
-  val out = Decoupled(Vec(v, new KeyValue(w)))
-  val outBound = Valid(UInt(w.W))
+  val inBound = Vec(ways, Flipped(Valid(UInt(32.W))))
+  val out = new DecoupledVec
+  val outBound = Valid(UInt(32.W))
 }
 
 class MergeBufferTwoWay(w: Int, v: Int) extends Module {
@@ -170,7 +176,7 @@ class MergeBufferTwoWay(w: Int, v: Int) extends Module {
   val io = IO(new MergeBufferIO(2, w, v))
   io <> DontCare
 
-  val sortPipe = Module(new SortPipe(w, v))
+  val sortPipe = Module(new SortPipe(new KeyValue(w), v))
   sortPipe.io <> DontCare
   sortPipe.io.out.ready := io.out.ready
 
@@ -190,19 +196,18 @@ class MergeBufferTwoWay(w: Int, v: Int) extends Module {
   initMerge.io.enable := io.initMerge.valid
   initMerge.io.in := io.initMerge.bits
 
-  val buffers = List.fill(2) { val x = Module(new FIFOPeek(Vec(v, new KeyValue(w)))); x.io <> DontCare; x }
+  val buffers = List.fill(2) { val x = Module(new FIFOPeek(Vec(v, Valid(new KeyValue(w))))); x.io <> DontCare; x }
   buffers.zipWithIndex.foreach { case (b, i) =>
     b.io.in.valid := io.in(i).valid
     b.io.in.bits := io.in(i).bits
-
     io.in(i).ready := b.io.in.ready
-    b.io.in.valid := io.in(i).valid
+
     b.io.out.ready := headCounter(i).io.done
   }
 
-  val streamCounter = List.fill(2) { Module(new UpDownCounter(w)) }
+  val streamCounter = List.fill(2) { Module(new UpDownCounter(32)) }
   streamCounter.zipWithIndex.foreach { case (sc, i) =>
-  sc.io <> DontCare
+    sc.io <> DontCare
     sc.io.init := io.inBound(i).bits
     sc.io.incDec := false.B
     sc.io.saturate := true.B
@@ -214,12 +219,12 @@ class MergeBufferTwoWay(w: Int, v: Int) extends Module {
   shifters.zipWithIndex.foreach { case (s, i) =>
     s.io <> DontCare
     s.io.in.zipWithIndex.foreach { case (v, j) =>
-      v.valid := buffers(i).io.out.valid
-      v.bits := buffers(i).io.out.bits(j)
+      v.valid := buffers(i).io.out.valid & buffers(i).io.out.bits(j).valid
+      v.bits := buffers(i).io.out.bits(j).bits
     }
     s.io.shiftIn.zipWithIndex.foreach { case (v, j) =>
-      v.valid := buffers(i).io.peek.valid
-      v.bits := buffers(i).io.peek.bits(j)
+      v.valid := buffers(i).io.peek.valid & buffers(i).io.peek.bits(j).valid
+      v.bits := buffers(i).io.peek.bits(j).bits
     }
     s.io.shiftSel := headCounter(i).io.out
   }
@@ -230,7 +235,7 @@ class MergeBufferTwoWay(w: Int, v: Int) extends Module {
     val compare = r.bits < l.bits | initMerge.io.out
     val rBit = Mux(r.valid & l.valid, compare, r.valid)
     val lBit = Mux(r.valid & l.valid, ~compare, l.valid)
-    val out = Mux(r.valid & l.valid, Mux(compare, r.bits, l.bits), Mux(r.valid, r.bits, l.bits))
+    val out = Mux(r.valid & l.valid, Mux(compare, r, l), Mux(r.valid, r, l))
     (rBit, lBit, out)
   }.unzip3
 
@@ -249,7 +254,7 @@ class MergeBufferTwoWay(w: Int, v: Int) extends Module {
   io.outBound.valid := io.inBound.map { _.valid }.reduce{ _|_ }
   io.outBound.bits := io.inBound.map { _.bits }.reduce{ _+_ }
 
-  io.out.valid := sortPipe.io.out.valid
+  //io.out.valid := sortPipe.io.out.valid
   io.out.bits := sortPipe.io.out.bits
 }
 
@@ -309,9 +314,11 @@ class MergeBuffer(ways: Int, par: Int, bitWidth: Int, readers: Int) extends Modu
 
   mergeBuf.io.out.ready := io.out_ren.asUInt.orR
 
-  mergeBuf.io.in.zipWithIndex.foreach { case (in, i) =>
-    in.valid := io.in_wen(i).reduce{_|_}
-    in.bits := io.in_data(i).asTypeOf(in.bits)
+  mergeBuf.io.in.zipWithIndex.foreach { case (wayIn, i) =>
+    wayIn.bits.zipWithIndex.foreach { case (v, j) =>
+      v.valid := io.in_wen(i)(j)
+      v.bits := io.in_data(i)(j).asTypeOf(v.bits)
+    }
   }
 
   mergeBuf.io.inBound.zipWithIndex.foreach { case (bound, i) =>
@@ -322,7 +329,9 @@ class MergeBuffer(ways: Int, par: Int, bitWidth: Int, readers: Int) extends Modu
   mergeBuf.io.initMerge.valid := io.initMerge_wen
   mergeBuf.io.initMerge.bits := io.initMerge_data
 
-  io.out_data := mergeBuf.io.out.bits.asTypeOf(io.out_data)
+  io.out_data.zipWithIndex.foreach { case (out, i) =>
+    out := mergeBuf.io.out.bits(i).bits.asTypeOf(out)
+  }
 
   io.empty := ~mergeBuf.io.out.valid
   io.full.zipWithIndex.foreach { case (f, i) =>
