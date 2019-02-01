@@ -18,7 +18,7 @@ object Sort {
     val mergeSizeInit = blockSizeInit * ways
     val mergeCountInit = sramBlockSize / mergeSizeInit
     // extra level for base case
-    val levelCount = 1//log(sramBlockSize / blockSizeInit, ways) + 1
+    val levelCount = log(sramBlockSize / blockSizeInit, ways) + 1
 
     val sramMergeBuf = MergeBuffer[Tup2[I32, T]](ways, mergePar)
 
@@ -80,7 +80,6 @@ object Sort {
       }
     }
 
-    /*
     // off-chip DRAM sort
     Pipe {
       val blockSizeInit = sramBlockSize
@@ -129,7 +128,6 @@ object Sort {
         }
       }
     }
-    */
   }
 
 }
