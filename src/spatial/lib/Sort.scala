@@ -7,6 +7,7 @@ object Sort {
 
   def log(x: scala.Int, base: scala.Int) = Math.round(scala.math.log(x.toDouble) / scala.math.log(base.toDouble)).toInt
 
+  /*
   @virtualize
   @api def mergeSort[T:Num](
     mem: SRAM1[Tup2[I32, T]],
@@ -58,15 +59,18 @@ object Sort {
     mergeSize := mergeSizeInit
     mergeCount := mergeCountInit
   }
+  */
 
   @virtualize
-  @api def mergeSort[T:Num](
-    srcDoubleBuf: DRAM1[Tup2[I32, T]],
+  @api def mergeSort(
+    keyDoubleBuf: DRAM1[I32],
+    valDoubleBuf: DRAM1[I32],
     mergePar: scala.Int = 2,
     ways: scala.Int = 2,
     numel: scala.Int
   ): Unit = {
 
+    /*
     val sramBlockSize = 256
 
     // SRAM block sort
@@ -79,18 +83,19 @@ object Sort {
         srcDoubleBuf(blockRange) store sram
       }
     }
+    */
 
     // off-chip DRAM sort
     Pipe {
-      val blockSizeInit = sramBlockSize
+      val blockSizeInit = mergePar
       val mergeSizeInit = blockSizeInit * ways
       val mergeCountInit = numel / mergeSizeInit
       val levelCount = log(numel / blockSizeInit, ways) + 1
 
       val doubleBuf = Reg[Boolean]
       doubleBuf := true
-      val fifos = List.fill(ways) { FIFO[Tup2[I32, T]](128) }
-      val mergeBuf = MergeBuffer[Tup2[I32, T]](ways, mergePar)
+      val fifos = List.fill(ways) { FIFO[Tup2[I32,I32]](128) }
+      val mergeBuf = MergeBuffer[Tup2[I32, I32]](ways, mergePar)
 
       val blockSize = Reg[I32](blockSizeInit)
       val mergeSize = Reg[I32](mergeSizeInit)
@@ -104,16 +109,29 @@ object Sort {
           val addr = List.tabulate(ways) { i => (block * mergeSize) + (i * blockSize) }
           Stream {
             fifos.zipWithIndex.foreach { case (f, i) =>
+              val fifoKey = FIFO[I32](128)
+              val fifoVal = FIFO[I32](128)
+
               val lOffset = mux(doubleBuf, 0, numel) 
               val lAddr = addr(i) + lOffset::addr(i) + lOffset + blockSize par mergePar
-              f load srcDoubleBuf(lAddr)
+              fifoKey load keyDoubleBuf(lAddr)
+              fifoVal load valDoubleBuf(lAddr)
               Foreach(0 until blockSize par mergePar) { j =>
+                f.enq(pack(fifoKey.deq(), fifoVal.deq()))
                 mergeBuf.enq(i, f.deq())
               }
             }
+            val fifoOutKey = FIFO[I32](128)
+            val fifoOutVal = FIFO[I32](128)
+            Foreach(0 until mergeSize par mergePar) { i =>
+              val out = mergeBuf.deq()
+              fifoOutKey.enq(out._1)
+              fifoOutVal.enq(out._2)
+            }
             val sOffset = mux(doubleBuf, numel, 0) 
             val sAddr = addr(0) + sOffset::addr(0) + sOffset + mergeSize par mergePar
-            srcDoubleBuf(sAddr) store mergeBuf
+            keyDoubleBuf(sAddr) store fifoOutKey
+            valDoubleBuf(sAddr) store fifoOutVal
           }
         }
         // copy back to first buffer

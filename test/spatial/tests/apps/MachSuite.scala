@@ -1784,18 +1784,20 @@ import spatial.targets._
 
     val numel = 2048
 
-    val data = Array.tabulate(numel) { i => pack(i, numel - i - 1) }
+    val key = Array.tabulate(numel) { i => i }
+    val value = Array.tabulate(numel) { i => numel - i - 1 }
 
-    val data_dram = DRAM[Tup2[I32, T]](numel * 2)
+    val dramKey = DRAM[I32](numel * 2)
+    val dramValue = DRAM[I32](numel * 2)
 
-    setMem(data_dram(0::numel), data)
+    setMem(dramKey(0::numel), key)
+    setMem(dramValue(0::numel), value)
 
     Accel {
-      Sort.mergeSort(data_dram, 8, 2, numel)
+      Sort.mergeSort(dramKey, dramValue, 8, 2, numel)
     }
 
-    val sorted_result = getMem(data_dram)
-    val values = sorted_result.map { a => a._2 }
+    val values = getMem(dramKey)
 
     printArray(values, "Sorted Result: ")
 
