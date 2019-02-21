@@ -101,43 +101,43 @@ trait CppGenAccel extends CppGenCommon {
 
     case UnitPipe(_,func) => 
       controllerStack.push(lhs)
-      instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
+      if (inHw) instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
       visitBlock(func)
       controllerStack.pop()
 
     case UnrolledForeach(ens,cchain,func,iters,valids,_) if (inHw) =>
       controllerStack.push(lhs)
-      instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
+      if (inHw) instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
       visitBlock(func)
       controllerStack.pop()
 
     case UnrolledReduce(ens,cchain,func,iters,valids,_) =>
       controllerStack.push(lhs)
-      instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
+      if (inHw) instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
       visitBlock(func)
       controllerStack.pop()
 
     case ParallelPipe(ens,func) =>
       controllerStack.push(lhs)
-      instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
+      if (inHw) instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
       visitBlock(func)
       controllerStack.pop()      
 
     case op@Switch(selects, body) if inHw => 
       controllerStack.push(lhs)
-      instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
+      if (inHw) instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
       visitBlock(body)
       controllerStack.pop()      
 
     case op@SwitchCase(body) if inHw =>
       controllerStack.push(lhs)
-      instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
+      if (inHw) instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
       visitBlock(body)
       controllerStack.pop()      
 
     case StateMachine(ens,start,notDone,action,nextState) =>
       controllerStack.push(lhs)
-      instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)    
+      if (inHw) instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)    
       visitBlock(notDone)
       visitBlock(action)
       visitBlock(nextState)
@@ -151,7 +151,7 @@ trait CppGenAccel extends CppGenCommon {
     case AssertIf(en, cond, m) => 
       // Emits will only happen if outside the accel
       val str = src"""${m.getOrElse("\"API assert failed with no message provided\"")}"""
-      emit(src"""string $lhs = string_plus("\n=================\n", string_plus($str, "\n=================\n"));""")
+      emit(src"""string $lhs = ("\n=================\n" + ($str + "\n=================\n"));""")
       val enable = if (en.toList.isEmpty) "true" else en.map(quote).mkString("&")
       emit(src"""if ($enable) { ASSERT($cond, ${lhs}.c_str()); }""")
       if (inHw) earlyExits = earlyExits :+ lhs
