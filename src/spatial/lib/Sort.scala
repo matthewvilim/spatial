@@ -28,7 +28,8 @@ object Sort {
 
     Sequential.Foreach(0 until levelCount) { level =>
       val initMerge = (level == 0)
-      Pipe { sramMergeBuf.init(initMerge) }
+      //Pipe { sramMergeBuf.init(initMerge) }
+      sramMergeBuf.init(initMerge)
       Sequential.Foreach(0 until mergeCount) { block =>
         List.tabulate(ways) { i => i }.foreach { case i =>
           Pipe { sramMergeBuf.bound(i, blockSize) }

@@ -152,7 +152,7 @@ class SortPipe(val w: Int, val v: Int) extends Module {
 
 class MergeBufferIO(val ways: Int, val w: Int, val v: Int) extends Bundle {
   val in = Vec(ways, Flipped(Decoupled(Vec(v, UInt(w.W)))))
-  val initMerge = Flipped(Valid(Bool()))
+  val initMerge = Input(Bool())
   val inBound = Vec(ways, Flipped(Valid(UInt(w.W))))
   val out = Decoupled(Vec(v, UInt(w.W)))
   val outBound = Valid(UInt(w.W))
@@ -182,8 +182,8 @@ class MergeBufferTwoWay(w: Int, v: Int) extends Module {
 
   val initMerge = Module(new FringeFF(Bool()))
   initMerge.io <> DontCare
-  initMerge.io.enable := io.initMerge.valid
-  initMerge.io.in := io.initMerge.bits
+  initMerge.io.enable := io.initMerge
+  initMerge.io.in := io.initMerge
 
   val buffers = List.fill(2) { val x = Module(new FIFOPeek(Vec(v, UInt(w.W)))); x.io <> DontCare; x }
   buffers.zipWithIndex.foreach { case (b, i) =>
@@ -291,8 +291,7 @@ class MergeBufferFullIO(val ways: Int, val par: Int, val bitWidth: Int, val read
   val input = new Bundle {
     val in_wen = Input(Vec(ways, Vec(par, Bool())))
     val in_data = Input(Vec(ways, Vec(par, UInt(bitWidth.W))))
-    val initMerge_wen = Input(Bool())
-    val initMerge_data = Input(UInt(bitWidth.W))
+    val initMerge= Input(Bool())
     val inBound_wen = Input(Vec(ways, Bool()))
     val inBound_data = Input(Vec(ways, UInt(bitWidth.W)))
     val out_ren = Input(Vec(readers, Vec(par, Bool())))
@@ -310,7 +309,7 @@ class MergeBufferFullIO(val ways: Int, val par: Int, val bitWidth: Int, val read
       cxn.mergeEnq.foreach{p => input.in_wen(p) := op.input.in_wen(p); input.in_data(p) := op.input.in_data(p)}
       cxn.mergeDeq.foreach{p => input.out_ren(p) := op.input.out_ren(p)}
       cxn.mergeBound.foreach{p => input.inBound_data(p) := op.input.inBound_data(p); input.inBound_wen(p) := op.input.inBound_wen(p)}
-      cxn.mergeInit.foreach{p => input.initMerge_wen := op.input.initMerge_wen; input.initMerge_data := op.input.initMerge_data}
+      cxn.mergeInit.foreach{p => input.initMerge:= op.input.initMerge}
       Ledger.substitute(op.hashCode, this.hashCode)
     }
   }
@@ -330,9 +329,8 @@ class MergeBufferFullIO(val ways: Int, val par: Int, val bitWidth: Int, val read
     input.inBound_wen(lane) := en
     Ledger.connectMergeBound(this.hashCode, lane)
   }
-  def connectMergeInit(data: UInt, en: Bool)(implicit stack: List[KernelHash]): Unit = {
-    input.initMerge_wen := en
-    input.initMerge_data := data
+  def connectMergeInit(en: Bool)(implicit stack: List[KernelHash]): Unit = {
+    input.initMerge := en
     Ledger.connectMergeInit(this.hashCode, 0)
   }
 
@@ -356,8 +354,7 @@ class MergeBuffer(ways: Int, par: Int, bitWidth: Int, readers: Int) extends Modu
     bound.bits := io.input.inBound_data(i)
   }
 
-  mergeBuf.io.initMerge.valid := io.input.initMerge_wen
-  mergeBuf.io.initMerge.bits := io.input.initMerge_data
+  mergeBuf.io.initMerge := io.input.initMerge
 
   io.output.out_data := mergeBuf.io.out.bits
 
