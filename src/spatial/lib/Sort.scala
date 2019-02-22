@@ -28,11 +28,10 @@ object Sort {
 
     Sequential.Foreach(0 until levelCount) { level =>
       val initMerge = (level == 0)
-      //Pipe { sramMergeBuf.init(initMerge) }
       sramMergeBuf.init(initMerge)
       Sequential.Foreach(0 until mergeCount) { block =>
         List.tabulate(ways) { i => i }.foreach { case i =>
-          Pipe { sramMergeBuf.bound(i, blockSize) }
+          sramMergeBuf.bound(i, blockSize)
         }
         val addr = List.tabulate(ways) { i => (block * mergeSize) + (i * blockSize) }
         addr.zipWithIndex.foreach { case (a, i) =>
@@ -102,7 +101,7 @@ object Sort {
       Sequential.Foreach(0 until levelCount) { level =>
         Sequential.Foreach(0 until mergeCount) { block =>
           fifos.zipWithIndex.foreach { case (f, i) =>
-            Pipe { mergeBuf.bound(i, blockSize) }
+            mergeBuf.bound(i, blockSize)
           }
           val addr = List.tabulate(ways) { i => (block * mergeSize) + (i * blockSize) }
           Stream {

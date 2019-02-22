@@ -369,9 +369,9 @@ trait ChiselGenMem extends ChiselGenCommon {
       val invEn = invisibleEnableRead(lhs,merge)
       val en = ens.map{ and(_) + src"&& $invEn" }.mkString(src"List[Bool](", ",", ")")
       emit(src"$lhs.toSeq.zip($merge.connectMergeDeq($readerIdx, $en)).foreach{case (l,r) => l.r := r}")
-    case MergeBufferBound(merge, way, data, ens) =>
+    case MergeBufferBound(merge, way, bound, ens) =>
       val invEn = invisibleEnableWrite(lhs)
-      emit(src"$merge.connectMergeBound($way, $data.r, ${and(ens)} & $invEn)")
+      emit(src"$merge.connectMergeBound($way, $bound.r, ${and(ens)} & $invEn)")
     case MergeBufferInit(merge, ens) =>
       val invEn = invisibleEnableWrite(lhs)
       emit(src"$merge.connectMergeInit(${and(ens)} & $invEn)")
