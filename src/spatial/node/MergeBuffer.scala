@@ -13,7 +13,7 @@ import spatial.lang._
 @op case class MergeBufferDeq[A:Bits](mem: MergeBuffer[A], ens: Set[Bit]) extends Dequeuer[A,A]
 
 @op case class MergeBufferBound[A:Bits](mem: MergeBuffer[A], way: Int, bound: Bits[I32], ens: Set[Bit]) extends Resetter[A]
-@op case class MergeBufferInit[A:Bits](mem: MergeBuffer[A], ens: Set[Bit]) extends Resetter[A]
+@op case class MergeBufferInit[A:Bits](mem: MergeBuffer[A], init: Bit, ens: Set[Bit]) extends Resetter[A]
 
 @op case class MergeBufferBankedEnq[A:Bits](
     mem:  MergeBuffer[A],

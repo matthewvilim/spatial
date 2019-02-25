@@ -372,9 +372,9 @@ trait ChiselGenMem extends ChiselGenCommon {
     case MergeBufferBound(merge, way, bound, ens) =>
       val invEn = invisibleEnableWrite(lhs)
       emit(src"$merge.connectMergeBound($way, $bound.r, ${and(ens)} & $invEn)")
-    case MergeBufferInit(merge, ens) =>
+    case MergeBufferInit(merge, init, ens) =>
       val invEn = invisibleEnableWrite(lhs)
-      emit(src"$merge.connectMergeInit(${and(ens)} & $invEn)")
+      emit(src"$merge.connectMergeInit($init, ${and(ens)} & $invEn)")
 
     case _ => super.gen(lhs, rhs)
   }
